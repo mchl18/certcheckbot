@@ -1,4 +1,4 @@
-module github.com/madbook/certchecker
+module github.com/mchl18/certcheckbot
 
 go 1.21
 

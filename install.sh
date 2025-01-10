@@ -33,7 +33,7 @@ fi
 
 # Get latest release URL from GitHub API
 echo "Detecting latest version..."
-LATEST_URL=$(curl -s https://api.github.com/repos/madbook/certchecker/releases/latest | grep "browser_download_url.*-$os-$arch.$ext" | cut -d '"' -f 4)
+LATEST_URL=$(curl -s https://api.github.com/repos/mchl18/certcheckbot/releases/latest | grep "browser_download_url.*-$os-$arch.$ext" | cut -d '"' -f 4)
 
 if [ -z "$LATEST_URL" ]; then
     echo "Error: Could not find release for $os-$arch"

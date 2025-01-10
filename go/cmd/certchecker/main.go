@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/joho/godotenv"
-	"github.com/madbook/certchecker/internal/checker"
-	"github.com/madbook/certchecker/internal/config"
-	"github.com/madbook/certchecker/internal/logger"
+	"github.com/mchl18/certcheckbot/internal/checker"
+	"github.com/mchl18/certcheckbot/internal/config"
+	"github.com/mchl18/certcheckbot/internal/logger"
 )
 
 const (

@@ -6,7 +6,7 @@ A service that monitors SSL certificates for specified domains and sends alerts 
 
 ```bash
 # Install the latest version
-curl -sSL https://raw.githubusercontent.com/madbook/certchecker/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/mchl18/certcheckbot/main/install.sh | bash
 
 # Add to your PATH (add to .bashrc/.zshrc for persistence)
 export PATH="$PATH:$HOME/.certchecker/bin"

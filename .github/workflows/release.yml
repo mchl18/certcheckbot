@@ -1,7 +1,7 @@
 name: Release
 
 permissions:
-  contents: write    # This declares the permission needed
+  contents: write
 
 on:
   push:

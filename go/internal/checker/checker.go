@@ -6,9 +6,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/madbook/certchecker/internal/alert"
-	"github.com/madbook/certchecker/internal/logger"
-	"github.com/madbook/certchecker/internal/storage"
+	"github.com/mchl18/certcheckbot/internal/alert"
+	"github.com/mchl18/certcheckbot/internal/logger"
+	"github.com/mchl18/certcheckbot/internal/storage"
 )
 
 type CertificateChecker struct {
