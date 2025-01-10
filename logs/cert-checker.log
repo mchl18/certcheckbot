@@ -1,0 +1,250 @@
+[2025-01-10T16:03:20+01:00] [INFO] [PID:91678] [MEM:0MB] [UPTIME:0s] Certificate monitoring service initialization
+{
+  "configuration": {
+    "checkInterval": "6h0m0s",
+    "domains": [
+      "tony-blutdruck.de",
+      "test.tony-blutdruck.de"
+    ],
+    "thresholds": [
+      7,
+      14,
+      30,
+      45
+    ]
+  },
+  "startTime": "2025-01-10T16:03:20+01:00"
+}
+[2025-01-10T16:03:20+01:00] [INFO] [PID:91678] [MEM:0MB] [UPTIME:0s] Beginning certificate check cycle
+{
+  "checkInterval": "6h0m0s",
+  "domains": [
+    "tony-blutdruck.de",
+    "test.tony-blutdruck.de"
+  ],
+  "thresholds": [
+    7,
+    14,
+    30,
+    45
+  ]
+}
+[2025-01-10T16:03:20+01:00] [INFO] [PID:91678] [MEM:0MB] [UPTIME:0s] Starting SSL certificate check for domain: tony-blutdruck.de
+{
+  "checkTime": "2025-01-10T16:03:20+01:00",
+  "checkType": "SSL_CERTIFICATE",
+  "domain": "tony-blutdruck.de"
+}
+[2025-01-10T16:03:22+01:00] [INFO] [PID:91678] [MEM:0MB] [UPTIME:1s] Certificate details retrieved for tony-blutdruck.de
+{
+  "domain": "tony-blutdruck.de",
+  "fingerprint": "a64e87f08405d631d33c2c9e9c59810bcc2eed7dc74ae7c8ed85fe7acae5305c3a2a52b3b698d992f8c5ca38131a52b7b94709ee1e53ebfae24d7398575d76a2eea15c77fd58219e4f2d12d261ee7878f2d6611dc5f5ada7529baa239cb04c8cd7009fd7278cbad338209f5c165fe29c7137e1c258816fbd222da7cc6144744ad72be334b54116dcf53d5809751e298d401b7dc97ca2dabc3213b7e8ec6deb99c3e82013087ddee97aba658698ba88a47fb6178da977d486f77ea911fa93c49110563c9e901c18bcb2b83d75f07ebfad84451612b61794b93d9e0b39d1f9e6cb869daf578701ce37d3b03e7e672677bfb005a902c19b2a17350a8e4f8a26c151",
+  "issuer": {
+    "Country": [
+      "US"
+    ],
+    "Organization": [
+      "Let's Encrypt"
+    ],
+    "OrganizationalUnit": null,
+    "Locality": null,
+    "Province": null,
+    "StreetAddress": null,
+    "PostalCode": null,
+    "SerialNumber": "",
+    "CommonName": "R11",
+    "Names": [
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          6
+        ],
+        "Value": "US"
+      },
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          10
+        ],
+        "Value": "Let's Encrypt"
+      },
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          3
+        ],
+        "Value": "R11"
+      }
+    ],
+    "ExtraNames": null
+  },
+  "protocol": 772,
+  "serialNumber": "399577935533853129378359075795615327703421",
+  "subject": {
+    "Country": null,
+    "Organization": null,
+    "OrganizationalUnit": null,
+    "Locality": null,
+    "Province": null,
+    "StreetAddress": null,
+    "PostalCode": null,
+    "SerialNumber": "",
+    "CommonName": "tony-blutdruck.de",
+    "Names": [
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          3
+        ],
+        "Value": "tony-blutdruck.de"
+      }
+    ],
+    "ExtraNames": null
+  },
+  "validFrom": "2024-11-12T05:17:53Z",
+  "validTo": "2025-02-10T05:17:52Z"
+}
+[2025-01-10T16:03:22+01:00] [INFO] [PID:91678] [MEM:0MB] [UPTIME:1s] Certificate expiration analysis for tony-blutdruck.de
+{
+  "daysRemaining": 30,
+  "domain": "tony-blutdruck.de",
+  "expirationDate": "2025-02-10T05:17:52Z",
+  "status": "WARNING"
+}
+[2025-01-10T16:03:23+01:00] [ERROR] [PID:91678] [MEM:0MB] [UPTIME:2s] Certificate check cycle failed
+{
+  "error": "failed to check certificate for tony-blutdruck.de: failed to send alert: slack API returned non-200 status code: 404"
+}
+[2025-01-10T16:04:30+01:00] [INFO] [PID:91873] [MEM:0MB] [UPTIME:0s] Certificate monitoring service initialization
+{
+  "configuration": {
+    "checkInterval": "6h0m0s",
+    "domains": [
+      "tony-blutdruck.de",
+      "test.tony-blutdruck.de"
+    ],
+    "thresholds": [
+      7,
+      14,
+      30,
+      45
+    ]
+  },
+  "startTime": "2025-01-10T16:04:30+01:00"
+}
+[2025-01-10T16:04:30+01:00] [INFO] [PID:91873] [MEM:0MB] [UPTIME:0s] Beginning certificate check cycle
+{
+  "checkInterval": "6h0m0s",
+  "domains": [
+    "tony-blutdruck.de",
+    "test.tony-blutdruck.de"
+  ],
+  "thresholds": [
+    7,
+    14,
+    30,
+    45
+  ]
+}
+[2025-01-10T16:04:30+01:00] [INFO] [PID:91873] [MEM:0MB] [UPTIME:0s] Starting SSL certificate check for domain: tony-blutdruck.de
+{
+  "checkTime": "2025-01-10T16:04:30+01:00",
+  "checkType": "SSL_CERTIFICATE",
+  "domain": "tony-blutdruck.de"
+}
+[2025-01-10T16:04:31+01:00] [INFO] [PID:91873] [MEM:0MB] [UPTIME:0s] Certificate details retrieved for tony-blutdruck.de
+{
+  "domain": "tony-blutdruck.de",
+  "fingerprint": "a64e87f08405d631d33c2c9e9c59810bcc2eed7dc74ae7c8ed85fe7acae5305c3a2a52b3b698d992f8c5ca38131a52b7b94709ee1e53ebfae24d7398575d76a2eea15c77fd58219e4f2d12d261ee7878f2d6611dc5f5ada7529baa239cb04c8cd7009fd7278cbad338209f5c165fe29c7137e1c258816fbd222da7cc6144744ad72be334b54116dcf53d5809751e298d401b7dc97ca2dabc3213b7e8ec6deb99c3e82013087ddee97aba658698ba88a47fb6178da977d486f77ea911fa93c49110563c9e901c18bcb2b83d75f07ebfad84451612b61794b93d9e0b39d1f9e6cb869daf578701ce37d3b03e7e672677bfb005a902c19b2a17350a8e4f8a26c151",
+  "issuer": {
+    "Country": [
+      "US"
+    ],
+    "Organization": [
+      "Let's Encrypt"
+    ],
+    "OrganizationalUnit": null,
+    "Locality": null,
+    "Province": null,
+    "StreetAddress": null,
+    "PostalCode": null,
+    "SerialNumber": "",
+    "CommonName": "R11",
+    "Names": [
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          6
+        ],
+        "Value": "US"
+      },
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          10
+        ],
+        "Value": "Let's Encrypt"
+      },
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          3
+        ],
+        "Value": "R11"
+      }
+    ],
+    "ExtraNames": null
+  },
+  "protocol": 772,
+  "serialNumber": "399577935533853129378359075795615327703421",
+  "subject": {
+    "Country": null,
+    "Organization": null,
+    "OrganizationalUnit": null,
+    "Locality": null,
+    "Province": null,
+    "StreetAddress": null,
+    "PostalCode": null,
+    "SerialNumber": "",
+    "CommonName": "tony-blutdruck.de",
+    "Names": [
+      {
+        "Type": [
+          2,
+          5,
+          4,
+          3
+        ],
+        "Value": "tony-blutdruck.de"
+      }
+    ],
+    "ExtraNames": null
+  },
+  "validFrom": "2024-11-12T05:17:53Z",
+  "validTo": "2025-02-10T05:17:52Z"
+}
+[2025-01-10T16:04:31+01:00] [INFO] [PID:91873] [MEM:0MB] [UPTIME:0s] Certificate expiration analysis for tony-blutdruck.de
+{
+  "daysRemaining": 30,
+  "domain": "tony-blutdruck.de",
+  "expirationDate": "2025-02-10T05:17:52Z",
+  "status": "WARNING"
+}
+[2025-01-10T16:04:32+01:00] [ERROR] [PID:91873] [MEM:0MB] [UPTIME:1s] Certificate check cycle failed
+{
+  "error": "failed to check certificate for tony-blutdruck.de: failed to send alert: slack API returned non-200 status code: 404"
+}

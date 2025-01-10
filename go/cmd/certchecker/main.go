@@ -10,6 +10,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/madbook/certchecker/internal/checker"
+	"github.com/madbook/certchecker/internal/config"
 	"github.com/madbook/certchecker/internal/logger"
 )
 
@@ -18,6 +19,14 @@ const (
 )
 
 func main() {
+	// Check for config command
+	if len(os.Args) > 1 && os.Args[1] == "config" {
+		if err := config.RunSetup(); err != nil {
+			log.Fatal("Configuration failed:", err)
+		}
+		return
+	}
+
 	// Get working directory
 	wd, err := os.Getwd()
 	if err != nil {
@@ -25,9 +34,23 @@ func main() {
 	}
 	projectRoot := filepath.Join(wd, "..")
 
-	// Load .env from project root
-	if err := godotenv.Load(filepath.Join(projectRoot, ".env")); err != nil {
-		log.Fatal("Error loading .env file:", err)
+	// Try to load .env from various locations
+	envPaths := []string{
+		filepath.Join(os.Getenv("HOME"), ".certchecker", "config", ".env"),
+		filepath.Join(projectRoot, ".env"),
+		".env",
+	}
+
+	envLoaded := false
+	for _, path := range envPaths {
+		if err := godotenv.Load(path); err == nil {
+			envLoaded = true
+			break
+		}
+	}
+
+	if !envLoaded {
+		log.Fatal("No .env file found. Run 'certchecker config' to create one.")
 	}
 
 	// Parse configuration
