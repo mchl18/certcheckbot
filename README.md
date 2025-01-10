@@ -1,6 +1,6 @@
 # SSL Certificate Checker
 
-A service that monitors SSL certificates for specified domains and sends alerts via Slack when certificates are approaching expiration. Available in both Go and Node.js implementations.
+A service that monitors SSL certificates for specified domains and sends alerts via Slack when certificates are approaching expiration.
 
 ## Quick Install
 
@@ -24,15 +24,10 @@ certchecker config
 - Alert history tracking with automatic backups
 - Runs as a service with configurable check intervals
 - Runtime configuration via `.env` file (no recompilation needed)
-- Bundled distributions for both Go and Node.js versions
 
 ## Prerequisites
 
-- For Go version:
-  - Go 1.21 or later
-- For Node.js version:
-  - Node.js 18 or later
-  - Yarn package manager
+- Go 1.21 or later
 - A Slack webhook URL for notifications
 
 ## Configuration
@@ -76,62 +71,43 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/your/webhook/url
 - The `.env` file is read at runtime, not during compilation
 - You can modify the `.env` file while the service is stopped without rebuilding
 - The `.env` file is automatically copied to the dist directory during build
-- Both versions in the dist directory expect the `.env` file to be in their respective directories
 
 ## Installation
 
-The project uses a Makefile for consistent building and running of both versions. All builds are output to the `dist` directory.
+The project uses a Makefile for consistent building and running. All builds are output to the `dist` directory.
 
 ### Install Dependencies
 
-For Go version:
 ```bash
 make deps-go
 ```
 
-For Node.js version:
-```bash
-make deps-node
-```
-
 ### Build
 
-Build both versions:
+Build the project:
 ```bash
 make all
 ```
 
-Or build individually:
-```bash
-make build-go    # Outputs to dist/go/certchecker
-make build-node  # Outputs to dist/node/certchecker.js
-```
-
 ### Distribution Package
 
-Create a distributable package containing both versions:
+Create a distributable package:
 ```bash
 make dist-package
 ```
-This creates `dist/certchecker.tar.gz` containing both the Go and Node.js versions with their respective `.env` files.
+This creates platform-specific packages in the `dist` directory.
 
 ## Usage
 
 ### Running the Service
 
-Run the Go version:
 ```bash
-make run-go     # Runs from dist/go/certchecker
-```
-
-Run the Node.js version:
-```bash
-make run-node   # Runs from dist/node/certchecker.js
+make run-go
 ```
 
 ### Clean Up
 
-Remove build artifacts and dependencies:
+Remove build artifacts:
 ```bash
 make clean
 ```
@@ -158,18 +134,9 @@ make help
 │       ├── checker/   # Certificate checking
 │       ├── logger/    # Logging
 │       └── storage/   # History management
-├── node/              # Node.js source code
-│   └── src/
-│       ├── alert/     # Slack notification
-│       ├── checker/   # Certificate checking
-│       ├── logger/    # Logging
-│       └── storage/   # History management
 ├── dist/              # Built artifacts
-│   ├── go/           # Go binary and config
-│   │   ├── certchecker
-│   │   └── .env
-│   └── node/         # Node.js bundle and config
-│       ├── certchecker.js
+│   └── go/           # Go binary and config
+│       ├── certchecker
 │       └── .env
 └── logs/              # Log files and history data
     ├── cert-checker.log
