@@ -1,4 +1,4 @@
-.PHONY: all clean build-go deps-go run-go help dist
+.PHONY: all clean build-go deps-go run-go help dist test test-short test-coverage
 
 all: build-go
 
@@ -44,6 +44,17 @@ run-go:
 deps-go:
 	cd go && go mod tidy
 
+# Test targets
+test:
+	cd go && go test ./...
+
+test-short:
+	cd go && go test -short ./...
+
+test-coverage:
+	cd go && go test -coverprofile=coverage.out ./...
+	cd go && go tool cover -html=coverage.out -o coverage.html
+
 # Distribution packages
 dist-package: clean dist build-go
 	cd dist && tar czf certchecker.tar.gz go
@@ -69,5 +80,8 @@ help:
 	@echo "  make run-go            - Run Go version from dist"
 	@echo "  make clean             - Clean build artifacts"
 	@echo "  make deps-go           - Install Go dependencies"
+	@echo "  make test              - Run all tests"
+	@echo "  make test-short        - Run tests excluding integration tests"
+	@echo "  make test-coverage     - Run tests with coverage report"
 	@echo "  make dist-package      - Create distributable package for current platform"
 	@echo "  make dist-package-all  - Create distributable packages for all platforms" 

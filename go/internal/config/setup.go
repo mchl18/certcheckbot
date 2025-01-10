@@ -5,99 +5,90 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
-type Config struct {
-	Domains         []string
-	ThresholdDays   []string
-	SlackWebhookURL string
+type reader interface {
+	ReadString(byte) (string, error)
 }
 
 func RunSetup() error {
-	reader := bufio.NewReader(os.Stdin)
-
-	fmt.Println("\n🔧 SSL Certificate Checker Configuration Setup")
-	fmt.Println("===========================================")
-
-	// Get domains
-	fmt.Print("\n📋 Enter domains to monitor (comma-separated, e.g., example.com,test.example.com): ")
-	domainsStr, _ := reader.ReadString('\n')
-	domains := strings.TrimSpace(domainsStr)
-
-	// Get threshold days
-	fmt.Print("\n⏰ Enter alert threshold days (comma-separated, e.g., 7,14,30,45): ")
-	thresholdStr, _ := reader.ReadString('\n')
-	thresholds := strings.TrimSpace(thresholdStr)
-
-	// Get Slack webhook URL
-	fmt.Print("\n🔔 Enter Slack webhook URL: ")
-	webhookURL, _ := reader.ReadString('\n')
-	webhookURL = strings.TrimSpace(webhookURL)
-
-	// Create config
-	config := Config{
-		Domains:         strings.Split(domains, ","),
-		ThresholdDays:   strings.Split(thresholds, ","),
-		SlackWebhookURL: webhookURL,
+	// Get home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	// Validate config
-	if err := validateConfig(config); err != nil {
-		return fmt.Errorf("invalid configuration: %w", err)
+	// Create config directory
+	configDir := filepath.Join(home, ".certchecker", "config")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Write config file
-	if err := writeConfig(config); err != nil {
-		return fmt.Errorf("failed to write configuration: %w", err)
-	}
+	// Set up config file path
+	configFile := filepath.Join(configDir, ".env")
 
-	fmt.Println("\n✅ Configuration saved successfully!")
-	return nil
+	return runSetupWithReader(configFile, bufio.NewReader(os.Stdin))
 }
 
-func validateConfig(config Config) error {
-	if len(config.Domains) == 0 || (len(config.Domains) == 1 && config.Domains[0] == "") {
-		return fmt.Errorf("at least one domain must be specified")
+func runSetupWithReader(configFile string, reader reader) error {
+	fmt.Print("Enter domains to monitor (comma-separated): ")
+	domains, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read domains: %w", err)
+	}
+	domains = strings.TrimSpace(domains)
+	if err := validateInput(domains, "domains"); err != nil {
+		return err
 	}
 
-	if len(config.ThresholdDays) == 0 || (len(config.ThresholdDays) == 1 && config.ThresholdDays[0] == "") {
-		return fmt.Errorf("at least one threshold day must be specified")
+	fmt.Print("Enter threshold days (comma-separated): ")
+	thresholds, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read thresholds: %w", err)
+	}
+	thresholds = strings.TrimSpace(thresholds)
+	if err := validateInput(thresholds, "thresholds"); err != nil {
+		return err
 	}
 
-	if config.SlackWebhookURL == "" {
-		return fmt.Errorf("Slack webhook URL must be specified")
+	fmt.Print("Enter Slack webhook URL: ")
+	webhook, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("failed to read webhook URL: %w", err)
+	}
+	webhook = strings.TrimSpace(webhook)
+	if err := validateInput(webhook, "webhook"); err != nil {
+		return err
 	}
 
-	return nil
-}
-
-func writeConfig(config Config) error {
-	// Find config directory
-	configDir := filepath.Join(os.Getenv("HOME"), ".certchecker", "config")
-	if _, err := os.Stat(configDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(configDir, 0755); err != nil {
-			return fmt.Errorf("failed to create config directory: %w", err)
-		}
-	}
-
-	// Create .env file content
-	content := fmt.Sprintf(`# Comma-separated list of domains to monitor
-DOMAINS=%s
-
-# Comma-separated list of days before expiration to send alerts
+	// Create config file
+	content := fmt.Sprintf(`DOMAINS=%s
 THRESHOLD_DAYS=%s
-
-# Slack webhook URL for notifications
 SLACK_WEBHOOK_URL=%s
-`, strings.Join(config.Domains, ","),
-		strings.Join(config.ThresholdDays, ","),
-		config.SlackWebhookURL)
+`, domains, thresholds, webhook)
 
-	// Write to .env file
-	envPath := filepath.Join(configDir, ".env")
-	if err := os.WriteFile(envPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write .env file: %w", err)
+	if err := os.WriteFile(configFile, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	fmt.Printf("Configuration saved to %s\n", configFile)
+	return nil
+}
+
+func validateInput(input, field string) error {
+	if input == "" {
+		return fmt.Errorf("%s cannot be empty", field)
+	}
+
+	if field == "thresholds" {
+		// Validate threshold days are numbers
+		for _, day := range strings.Split(input, ",") {
+			if _, err := strconv.Atoi(strings.TrimSpace(day)); err != nil {
+				return fmt.Errorf("invalid threshold day: %s", day)
+			}
+		}
 	}
 
 	return nil
