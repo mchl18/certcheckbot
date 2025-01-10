@@ -6,6 +6,10 @@ all: build-go
 .env:
 	touch .env
 
+# Create dist directory
+dist:
+	mkdir -p dist
+
 build-go: .env
 	mkdir -p dist/go
 	cd go && go build -o ../dist/go/certchecker cmd/certchecker/main.go
