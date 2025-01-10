@@ -16,8 +16,16 @@ type HistoryManager struct {
 type History map[string]map[int]string
 
 func NewHistoryManager(projectRoot string) *HistoryManager {
+	// Get home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get home directory: %v", err))
+	}
+
+	// Set history path within .certchecker
+	historyPath := filepath.Join(home, ".certchecker", "data", "alert-history.json")
 	return &HistoryManager{
-		historyPath: filepath.Join(projectRoot, "logs", "data", "alert-history.json"),
+		historyPath: historyPath,
 	}
 }
 

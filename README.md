@@ -50,10 +50,8 @@ The configuration will be saved to `$HOME/.certchecker/config/.env`.
 
 ### 2. Manual Configuration
 
-Create or edit `.env` file in one of these locations (in order of precedence):
-1. `$HOME/.certchecker/config/.env`
-2. `.env` in the current directory
-3. `.env` in the parent directory
+Create or edit `.env` file at:
+`$HOME/.certchecker/config/.env`
 
 ```env
 # Comma-separated list of domains to monitor
@@ -70,7 +68,7 @@ SLACK_WEBHOOK_URL=https://hooks.slack.com/services/your/webhook/url
 
 - The `.env` file is read at runtime, not during compilation
 - You can modify the `.env` file while the service is stopped without rebuilding
-- The `.env` file is automatically copied to the dist directory during build
+- All application data is stored in the `$HOME/.certchecker` directory
 
 ## Installation
 
@@ -122,26 +120,14 @@ make help
 ## Project Structure
 
 ```
-.
-├── .env                # Environment configuration template
-├── Makefile           # Build and run commands
-├── cmd/               # Command-line interface
-│   └── certchecker/
-│       └── main.go
-├── internal/          # Internal packages
-│   ├── alert/        # Slack notification
-│   ├── checker/      # Certificate checking
-│   ├── logger/       # Logging
-│   └── storage/      # History management
-├── dist/             # Built artifacts
-│   └── bin/          # Binaries and config
-│       ├── certchecker
-│       └── .env
-└── logs/             # Log files and history data
-    ├── cert-checker.log
-    └── data/
-        ├── alert-history.json
-        └── alert-history.json.backup
+$HOME/.certchecker/
+├── config/           # Configuration directory
+│   └── .env         # Environment configuration
+├── logs/            # Application logs
+│   └── cert-checker.log
+└── data/            # Application data
+    ├── alert-history.json
+    └── alert-history.json.backup
 ```
 
 ## Logging

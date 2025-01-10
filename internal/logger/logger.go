@@ -14,11 +14,21 @@ type Logger struct {
 }
 
 func New(logFile string) *Logger {
-	// Ensure log directory exists
-	if err := os.MkdirAll(filepath.Dir(logFile), 0755); err != nil {
+	// Get home directory
+	home, err := os.UserHomeDir()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get home directory: %v", err))
+	}
+
+	// Ensure log directory exists within .certchecker
+	logDir := filepath.Join(home, ".certchecker", "logs")
+	if err := os.MkdirAll(logDir, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create log directory: %v", err))
 	}
-	return &Logger{logFile: logFile}
+
+	// Set log file path within .certchecker
+	logPath := filepath.Join(logDir, logFile)
+	return &Logger{logFile: logPath}
 }
 
 func (l *Logger) log(level string, message string, details map[string]interface{}) {

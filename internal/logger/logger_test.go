@@ -15,7 +15,9 @@ func TestLogger(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	logFile := filepath.Join(tempDir, "test.log")
+	// Set up test environment
+	t.Setenv("HOME", tempDir)
+	logFile := "test.log"
 	logger := New(logFile)
 
 	tests := []struct {
@@ -70,7 +72,8 @@ func TestLogger(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear the log file before each test
-			if err := os.WriteFile(logFile, []byte(""), 0644); err != nil {
+			logPath := filepath.Join(tempDir, ".certchecker", "logs", logFile)
+			if err := os.WriteFile(logPath, []byte(""), 0644); err != nil {
 				t.Fatalf("Failed to clear log file: %v", err)
 			}
 
@@ -82,7 +85,7 @@ func TestLogger(t *testing.T) {
 			}
 
 			// Read log file
-			content, err := os.ReadFile(logFile)
+			content, err := os.ReadFile(logPath)
 			if err != nil {
 				t.Fatalf("Failed to read log file: %v", err)
 			}
@@ -107,19 +110,21 @@ func TestLoggerCreateDirectory(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	logDir := filepath.Join(tempDir, "logs", "nested")
-	logFile := filepath.Join(logDir, "test.log")
-
+	// Set up test environment
+	t.Setenv("HOME", tempDir)
+	logFile := "test.log"
 	logger := New(logFile)
 	logger.Info("test message", nil)
 
 	// Check if directory was created
+	logDir := filepath.Join(tempDir, ".certchecker", "logs")
 	if _, err := os.Stat(logDir); os.IsNotExist(err) {
 		t.Error("Log directory was not created")
 	}
 
 	// Check if log file was created
-	if _, err := os.Stat(logFile); os.IsNotExist(err) {
+	logPath := filepath.Join(logDir, logFile)
+	if _, err := os.Stat(logPath); os.IsNotExist(err) {
 		t.Error("Log file was not created")
 	}
 }

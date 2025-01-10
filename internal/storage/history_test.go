@@ -4,28 +4,19 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 )
 
 func TestHistoryManager(t *testing.T) {
-	// Create a temporary directory for testing
+	// Create a temporary directory for test config
 	tempDir, err := os.MkdirTemp("", "history-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create logs/data directory structure
-	dataDir := filepath.Join(tempDir, "logs", "data")
-	err = os.MkdirAll(dataDir, 0755)
-	if err != nil {
-		t.Fatalf("Failed to create data dir: %v", err)
-	}
-
-	t.Logf("Using temp dir: %s", tempDir)
-	t.Logf("Using data dir: %s", dataDir)
-
-	manager := NewHistoryManager(tempDir)
+	// Set up test environment
+	t.Setenv("HOME", tempDir)
+	manager := NewHistoryManager("")
 
 	// Test saving new history
 	history := map[string]map[int]string{
@@ -43,16 +34,10 @@ func TestHistoryManager(t *testing.T) {
 		t.Errorf("First SaveHistory() error = %v", err)
 	}
 
-	// Give filesystem a moment to complete write operations
-	time.Sleep(100 * time.Millisecond)
-
 	// Save again to trigger backup creation
 	if err := manager.SaveHistory(history); err != nil {
 		t.Errorf("Second SaveHistory() error = %v", err)
 	}
-
-	// Give filesystem another moment
-	time.Sleep(100 * time.Millisecond)
 
 	// Test loading saved history
 	loaded, err := manager.LoadHistory()
@@ -83,21 +68,17 @@ func TestHistoryManager(t *testing.T) {
 	}
 
 	// Test backup file creation
-	mainFile := filepath.Join(dataDir, "alert-history.json")
+	mainFile := filepath.Join(tempDir, ".certchecker", "data", "alert-history.json")
 	backupFile := mainFile + ".backup"
 
 	// Check if main file exists
 	if _, err := os.Stat(mainFile); err != nil {
 		t.Errorf("Main file does not exist: %v", err)
-	} else {
-		t.Log("Main file exists")
 	}
 
 	// Check backup file
 	if _, err := os.Stat(backupFile); err != nil {
 		t.Errorf("Backup file does not exist: %v", err)
-	} else {
-		t.Log("Backup file exists")
 	}
 
 	// Test loading with no existing file

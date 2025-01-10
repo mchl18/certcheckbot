@@ -27,29 +27,15 @@ func main() {
 		return
 	}
 
-	// Get working directory
-	wd, err := os.Getwd()
+	// Get home directory for .certchecker
+	home, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("Failed to get working directory:", err)
-	}
-	projectRoot := filepath.Join(wd, "..")
-
-	// Try to load .env from various locations
-	envPaths := []string{
-		filepath.Join(os.Getenv("HOME"), ".certchecker", "config", ".env"),
-		filepath.Join(projectRoot, ".env"),
-		".env",
+		log.Fatal("Failed to get home directory:", err)
 	}
 
-	envLoaded := false
-	for _, path := range envPaths {
-		if err := godotenv.Load(path); err == nil {
-			envLoaded = true
-			break
-		}
-	}
-
-	if !envLoaded {
+	// Try to load .env from .certchecker config
+	envPath := filepath.Join(home, ".certchecker", "config", ".env")
+	if err := godotenv.Load(envPath); err != nil {
 		log.Fatal("No .env file found. Run 'certchecker config' to create one.")
 	}
 
@@ -80,17 +66,17 @@ func main() {
 	}
 
 	// Initialize logger
-	logger := logger.New(filepath.Join(projectRoot, "logs", "cert-checker.log"))
+	logger := logger.New(filepath.Join(home, "logs", "cert-checker.log"))
 
 	// Initialize certificate checker with project root
-	certChecker := checker.New(domains, thresholdDays, slackWebhookURL, logger, projectRoot)
+	certChecker := checker.New(domains, thresholdDays, slackWebhookURL, logger, home)
 
 	// Run initial check
 	logger.Info("Certificate monitoring service initialization", map[string]interface{}{
 		"startTime": time.Now().Format(time.RFC3339),
 		"configuration": map[string]interface{}{
 			"domains":       domains,
-			"thresholds":   thresholdDays,
+			"thresholds":    thresholdDays,
 			"checkInterval": checkInterval.String(),
 		},
 	})
@@ -121,4 +107,4 @@ func runCheck(certChecker *checker.CertificateChecker, logger *logger.Logger) {
 	}
 
 	logger.Info("Certificate check cycle completed successfully", nil)
-} 
+}

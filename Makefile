@@ -73,14 +73,56 @@ dist-package: clean dist build
 
 # Cross-platform distribution package
 dist-package-all: clean dist build-all
-	cd dist && tar czf certchecker-linux-amd64.tar.gz bin/linux-amd64/*
-	cd dist && tar czf certchecker-linux-arm64.tar.gz bin/linux-arm64/*
-	cd dist && tar czf certchecker-darwin-amd64.tar.gz bin/darwin-amd64/*
-	cd dist && tar czf certchecker-darwin-arm64.tar.gz bin/darwin-arm64/*
-	cd dist && zip -j certchecker-windows-amd64.zip bin/windows-amd64/*
-	cd dist && zip -j certchecker-windows-x86.zip bin/windows-x86/*
-	cd dist && zip -j certchecker-windows-arm64.zip bin/windows-arm64/*
-	cd dist && zip -j certchecker-windows-arm32.zip bin/windows-arm32/*
+	# Create temporary directories for packaging
+	mkdir -p dist/pkg/bin
+	# Linux (amd64)
+	mkdir -p dist/pkg/bin/linux-amd64
+	cp dist/bin/linux-amd64/certchecker dist/pkg/bin/linux-amd64/
+	cp dist/bin/linux-amd64/.env dist/pkg/bin/linux-amd64/
+	cd dist/pkg && tar czf ../certchecker-linux-amd64.tar.gz *
+	rm -rf dist/pkg/*
+	# Linux (arm64)
+	mkdir -p dist/pkg/bin/linux-arm64
+	cp dist/bin/linux-arm64/certchecker dist/pkg/bin/linux-arm64/
+	cp dist/bin/linux-arm64/.env dist/pkg/bin/linux-arm64/
+	cd dist/pkg && tar czf ../certchecker-linux-arm64.tar.gz *
+	rm -rf dist/pkg/*
+	# macOS (amd64)
+	mkdir -p dist/pkg/bin/darwin-amd64
+	cp dist/bin/darwin-amd64/certchecker dist/pkg/bin/darwin-amd64/
+	cp dist/bin/darwin-amd64/.env dist/pkg/bin/darwin-amd64/
+	cd dist/pkg && tar czf ../certchecker-darwin-amd64.tar.gz *
+	rm -rf dist/pkg/*
+	# macOS (arm64)
+	mkdir -p dist/pkg/bin/darwin-arm64
+	cp dist/bin/darwin-arm64/certchecker dist/pkg/bin/darwin-arm64/
+	cp dist/bin/darwin-arm64/.env dist/pkg/bin/darwin-arm64/
+	cd dist/pkg && tar czf ../certchecker-darwin-arm64.tar.gz *
+	rm -rf dist/pkg/*
+	# Windows (amd64)
+	mkdir -p dist/pkg/bin/windows-amd64
+	cp dist/bin/windows-amd64/certchecker.exe dist/pkg/bin/windows-amd64/
+	cp dist/bin/windows-amd64/.env dist/pkg/bin/windows-amd64/
+	cd dist/pkg && zip -r ../certchecker-windows-amd64.zip *
+	rm -rf dist/pkg/*
+	# Windows (x86)
+	mkdir -p dist/pkg/bin/windows-x86
+	cp dist/bin/windows-x86/certchecker.exe dist/pkg/bin/windows-x86/
+	cp dist/bin/windows-x86/.env dist/pkg/bin/windows-x86/
+	cd dist/pkg && zip -r ../certchecker-windows-x86.zip *
+	rm -rf dist/pkg/*
+	# Windows (arm64)
+	mkdir -p dist/pkg/bin/windows-arm64
+	cp dist/bin/windows-arm64/certchecker.exe dist/pkg/bin/windows-arm64/
+	cp dist/bin/windows-arm64/.env dist/pkg/bin/windows-arm64/
+	cd dist/pkg && zip -r ../certchecker-windows-arm64.zip *
+	rm -rf dist/pkg/*
+	# Windows (arm32)
+	mkdir -p dist/pkg/bin/windows-arm32
+	cp dist/bin/windows-arm32/certchecker.exe dist/pkg/bin/windows-arm32/
+	cp dist/bin/windows-arm32/.env dist/pkg/bin/windows-arm32/
+	cd dist/pkg && zip -r ../certchecker-windows-arm32.zip *
+	rm -rf dist/pkg
 	@echo "Cross-platform distribution packages created in dist/"
 
 # Help

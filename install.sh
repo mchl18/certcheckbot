@@ -1,80 +1,68 @@
 #!/bin/bash
 
-# Detect OS
-OS="$(uname -s)"
-case "${OS}" in
-    Linux*)     os=linux;;
-    Darwin*)    os=darwin;;
-    CYGWIN*)    os=windows;;
-    MINGW*)     os=windows;;
-    MSYS*)      os=windows;;
-    *)          echo "Unsupported OS: ${OS}"; exit 1;;
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}Installing SSL Certificate Checker...${NC}"
+
+# Determine system info
+ARCH=$(uname -m)
+OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+
+# Map architecture names
+case ${ARCH} in
+    x86_64)
+        ARCH="amd64"
+        ;;
+    aarch64|arm64)
+        ARCH="arm64"
+        ;;
+    *)
+        echo -e "${RED}Unsupported architecture: ${ARCH}${NC}"
+        exit 1
+        ;;
 esac
 
-# Detect architecture
-ARCH="$(uname -m)"
-case "${ARCH}" in
-    x86_64*)    arch=amd64;;
-    amd64*)     arch=amd64;;
-    i386*)      arch=386;;
-    i686*)      arch=386;;
-    arm64*)     arch=arm64;;
-    aarch64*)   arch=arm64;;
-    arm*)       arch=arm;;
-    *)          echo "Unsupported architecture: ${ARCH}"; exit 1;;
-esac
+# Create .certchecker directory structure
+INSTALL_DIR="$HOME/.certchecker"
+echo -e "${BLUE}Creating directory structure in ${INSTALL_DIR}...${NC}"
 
-# Set file extension based on OS
-if [ "$os" = "windows" ]; then
-    ext="zip"
-else
-    ext="tar.gz"
-fi
+mkdir -p "${INSTALL_DIR}/"{bin,config,logs,data}
 
-# Get latest release URL from GitHub API
-echo "Detecting latest version..."
-LATEST_URL=$(curl -s https://api.github.com/repos/mchl18/certcheckbot/releases/latest | grep "browser_download_url.*-$os-$arch.$ext" | cut -d '"' -f 4)
+# Get the latest release URL
+echo -e "${BLUE}Fetching latest release...${NC}"
+LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/mchl18/certcheckbot/releases/latest | grep "browser_download_url.*${OS}-${ARCH}.tar.gz" | cut -d '"' -f 4)
 
-if [ -z "$LATEST_URL" ]; then
-    echo "Error: Could not find release for $os-$arch"
+if [ -z "$LATEST_RELEASE_URL" ]; then
+    echo -e "${RED}Failed to find release for ${OS}-${ARCH}${NC}"
     exit 1
 fi
 
-echo "Downloading certchecker for $os-$arch..."
-curl -L -o "certchecker-$os-$arch.$ext" "$LATEST_URL"
+# Download and extract the release
+echo -e "${BLUE}Downloading ${OS}-${ARCH} release...${NC}"
+curl -L --progress-bar -o "${INSTALL_DIR}/release.tar.gz" "${LATEST_RELEASE_URL}"
 
-# Create install directory
-install_dir="$HOME/.certchecker"
-mkdir -p "$install_dir"
+echo -e "${BLUE}Extracting release...${NC}"
+cd "${INSTALL_DIR}"
+tar xzf release.tar.gz
+mv bin/*/* bin/
+rm -rf bin/*/
+rm release.tar.gz
 
-# Extract the archive
-echo "Installing to $install_dir..."
-if [ "$os" = "windows" ]; then
-    unzip -o "certchecker-$os-$arch.$ext" -d "$install_dir"
-else
-    tar xzf "certchecker-$os-$arch.$ext" -C "$install_dir"
-fi
+# Make binary executable
+chmod +x "${INSTALL_DIR}/bin/certchecker"
 
-# Clean up downloaded archive
-rm "certchecker-$os-$arch.$ext"
-
-# Move binary to bin directory
-mkdir -p "$install_dir/bin"
-if [ "$os" = "windows" ]; then
-    mv "$install_dir/certchecker.exe" "$install_dir/bin/"
-else
-    mv "$install_dir/certchecker" "$install_dir/bin/"
-fi
-
-# Move .env to config directory
-mkdir -p "$install_dir/config"
-mv "$install_dir/.env" "$install_dir/config/"
-
-echo "Installation complete!"
-echo "Certchecker installed to: $install_dir/bin"
-echo "Configuration file at: $install_dir/config/.env"
+echo -e "${GREEN}Installation complete!${NC}"
 echo
-echo "Please add the following to your shell configuration (.bashrc, .zshrc, etc.):"
-echo "export PATH=\"\$PATH:$install_dir/bin\""
+echo -e "${BLUE}To complete the installation:${NC}"
 echo
-echo "Don't forget to edit $install_dir/config/.env with your configuration!" 
+echo -e "1. ${BLUE}Add to your PATH by adding this line to your shell config (.bashrc, .zshrc, etc.):${NC}"
+echo -e "   ${GREEN}export PATH=\"\$PATH:\$HOME/.certchecker/bin\"${NC}"
+echo
+echo -e "2. ${BLUE}Configure the service by running:${NC}"
+echo -e "   ${GREEN}certchecker config${NC}" 
