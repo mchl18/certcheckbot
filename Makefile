@@ -18,23 +18,34 @@ clean:
 
 # Cross-compile for multiple platforms
 build-all: dist
+	mkdir -p dist/bin/linux-amd64 dist/bin/linux-arm64 \
+		dist/bin/darwin-amd64 dist/bin/darwin-arm64 \
+		dist/bin/windows-amd64 dist/bin/windows-x86 \
+		dist/bin/windows-arm64 dist/bin/windows-arm32
 	# Linux (amd64)
-	GOOS=linux GOARCH=amd64 go build -o dist/bin/certchecker-linux-amd64 cmd/certchecker/main.go
+	GOOS=linux GOARCH=amd64 go build -o dist/bin/linux-amd64/certchecker cmd/certchecker/main.go
+	cp .env dist/bin/linux-amd64/
 	# Linux (arm64)
-	GOOS=linux GOARCH=arm64 go build -o dist/bin/certchecker-linux-arm64 cmd/certchecker/main.go
+	GOOS=linux GOARCH=arm64 go build -o dist/bin/linux-arm64/certchecker cmd/certchecker/main.go
+	cp .env dist/bin/linux-arm64/
 	# macOS (amd64)
-	GOOS=darwin GOARCH=amd64 go build -o dist/bin/certchecker-darwin-amd64 cmd/certchecker/main.go
+	GOOS=darwin GOARCH=amd64 go build -o dist/bin/darwin-amd64/certchecker cmd/certchecker/main.go
+	cp .env dist/bin/darwin-amd64/
 	# macOS (arm64/M1)
-	GOOS=darwin GOARCH=arm64 go build -o dist/bin/certchecker-darwin-arm64 cmd/certchecker/main.go
+	GOOS=darwin GOARCH=arm64 go build -o dist/bin/darwin-arm64/certchecker cmd/certchecker/main.go
+	cp .env dist/bin/darwin-arm64/
 	# Windows (amd64)
-	GOOS=windows GOARCH=amd64 go build -o dist/bin/certchecker-windows-amd64.exe cmd/certchecker/main.go
+	GOOS=windows GOARCH=amd64 go build -o dist/bin/windows-amd64/certchecker.exe cmd/certchecker/main.go
+	cp .env dist/bin/windows-amd64/
 	# Windows (x86/32-bit)
-	GOOS=windows GOARCH=386 go build -o dist/bin/certchecker-windows-x86.exe cmd/certchecker/main.go
+	GOOS=windows GOARCH=386 go build -o dist/bin/windows-x86/certchecker.exe cmd/certchecker/main.go
+	cp .env dist/bin/windows-x86/
 	# Windows (ARM64)
-	GOOS=windows GOARCH=arm64 go build -o dist/bin/certchecker-windows-arm64.exe cmd/certchecker/main.go
+	GOOS=windows GOARCH=arm64 go build -o dist/bin/windows-arm64/certchecker.exe cmd/certchecker/main.go
+	cp .env dist/bin/windows-arm64/
 	# Windows (ARM32)
-	GOOS=windows GOARCH=arm go build -o dist/bin/certchecker-windows-arm32.exe cmd/certchecker/main.go
-	cp .env dist/bin/
+	GOOS=windows GOARCH=arm go build -o dist/bin/windows-arm32/certchecker.exe cmd/certchecker/main.go
+	cp .env dist/bin/windows-arm32/
 
 # Run targets
 run:
@@ -62,14 +73,14 @@ dist-package: clean dist build
 
 # Cross-platform distribution package
 dist-package-all: clean dist build-all
-	cd dist && tar czf certchecker-linux-amd64.tar.gz bin/certchecker-linux-amd64 bin/.env
-	cd dist && tar czf certchecker-linux-arm64.tar.gz bin/certchecker-linux-arm64 bin/.env
-	cd dist && tar czf certchecker-darwin-amd64.tar.gz bin/certchecker-darwin-amd64 bin/.env
-	cd dist && tar czf certchecker-darwin-arm64.tar.gz bin/certchecker-darwin-arm64 bin/.env
-	cd dist && zip -r certchecker-windows-amd64.zip bin/certchecker-windows-amd64.exe bin/.env
-	cd dist && zip -r certchecker-windows-x86.zip bin/certchecker-windows-x86.exe bin/.env
-	cd dist && zip -r certchecker-windows-arm64.zip bin/certchecker-windows-arm64.exe bin/.env
-	cd dist && zip -r certchecker-windows-arm32.zip bin/certchecker-windows-arm32.exe bin/.env
+	cd dist && tar czf certchecker-linux-amd64.tar.gz bin/linux-amd64/*
+	cd dist && tar czf certchecker-linux-arm64.tar.gz bin/linux-arm64/*
+	cd dist && tar czf certchecker-darwin-amd64.tar.gz bin/darwin-amd64/*
+	cd dist && tar czf certchecker-darwin-arm64.tar.gz bin/darwin-arm64/*
+	cd dist && zip -j certchecker-windows-amd64.zip bin/windows-amd64/*
+	cd dist && zip -j certchecker-windows-x86.zip bin/windows-x86/*
+	cd dist && zip -j certchecker-windows-arm64.zip bin/windows-arm64/*
+	cd dist && zip -j certchecker-windows-arm32.zip bin/windows-arm32/*
 	@echo "Cross-platform distribution packages created in dist/"
 
 # Help
