@@ -61,17 +61,14 @@ rm "certchecker-$os-$arch.$ext"
 # Move binary to bin directory
 mkdir -p "$install_dir/bin"
 if [ "$os" = "windows" ]; then
-    mv "$install_dir/${os}_${arch}/certchecker.exe" "$install_dir/bin/"
+    mv "$install_dir/bin/certchecker-$os-$arch.exe" "$install_dir/bin/certchecker.exe"
 else
-    mv "$install_dir/${os}_${arch}/certchecker" "$install_dir/bin/"
+    mv "$install_dir/bin/certchecker-$os-$arch" "$install_dir/bin/certchecker"
 fi
 
 # Move .env to config directory
 mkdir -p "$install_dir/config"
-mv "$install_dir/${os}_${arch}/.env" "$install_dir/config/"
-
-# Clean up extracted directory
-rm -rf "$install_dir/${os}_${arch}"
+mv "$install_dir/bin/.env" "$install_dir/config/"
 
 echo "Installation complete!"
 echo "Certchecker installed to: $install_dir/bin"

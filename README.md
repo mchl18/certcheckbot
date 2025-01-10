@@ -79,14 +79,14 @@ The project uses a Makefile for consistent building and running. All builds are 
 ### Install Dependencies
 
 ```bash
-make deps-go
+make deps
 ```
 
 ### Build
 
 Build the project:
 ```bash
-make all
+make build
 ```
 
 ### Distribution Package
@@ -102,7 +102,7 @@ This creates platform-specific packages in the `dist` directory.
 ### Running the Service
 
 ```bash
-make run-go
+make run
 ```
 
 ### Clean Up
@@ -125,20 +125,19 @@ make help
 .
 ├── .env                # Environment configuration template
 ├── Makefile           # Build and run commands
-├── go/                # Go source code
-│   ├── cmd/
-│   │   └── certchecker/
-│   │       └── main.go
-│   └── internal/
-│       ├── alert/     # Slack notification
-│       ├── checker/   # Certificate checking
-│       ├── logger/    # Logging
-│       └── storage/   # History management
-├── dist/              # Built artifacts
-│   └── go/           # Go binary and config
+├── cmd/               # Command-line interface
+│   └── certchecker/
+│       └── main.go
+├── internal/          # Internal packages
+│   ├── alert/        # Slack notification
+│   ├── checker/      # Certificate checking
+│   ├── logger/       # Logging
+│   └── storage/      # History management
+├── dist/             # Built artifacts
+│   └── bin/          # Binaries and config
 │       ├── certchecker
 │       └── .env
-└── logs/              # Log files and history data
+└── logs/             # Log files and history data
     ├── cert-checker.log
     └── data/
         ├── alert-history.json
