@@ -92,4 +92,4 @@ func validateInput(input, field string) error {
 	}
 
 	return nil
-} 
+}

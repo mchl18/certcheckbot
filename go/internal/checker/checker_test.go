@@ -10,7 +10,7 @@ import (
 
 type mockNotifier struct {
 	alerts []struct {
-		domain          string
+		domain         string
 		daysRemaining  int
 		expirationDate time.Time
 		threshold      int
@@ -19,12 +19,12 @@ type mockNotifier struct {
 
 func (m *mockNotifier) SendAlert(domain string, daysRemaining int, expirationDate time.Time, threshold int) error {
 	m.alerts = append(m.alerts, struct {
-		domain          string
+		domain         string
 		daysRemaining  int
 		expirationDate time.Time
 		threshold      int
 	}{
-		domain:          domain,
+		domain:         domain,
 		daysRemaining:  daysRemaining,
 		expirationDate: expirationDate,
 		threshold:      threshold,
@@ -89,7 +89,7 @@ func TestCheckCertificate(t *testing.T) {
 	}
 
 	domains := []string{"google.com"} // Using a reliable domain for testing
-	thresholds := []int{365} // Set high threshold to ensure we get an alert
+	thresholds := []int{365}          // Set high threshold to ensure we get an alert
 	logger := logger.New("/dev/null")
 	mockNotifier := &mockNotifier{}
 
@@ -98,7 +98,7 @@ func TestCheckCertificate(t *testing.T) {
 		thresholdDays: thresholds,
 		logger:        logger,
 		slackNotifier: alert.NewSlackNotifier("mock-webhook"), // Use real notifier
-		history:       nil, // We don't need history for this test
+		history:       nil,                                    // We don't need history for this test
 	}
 
 	err := checker.CheckAll()
@@ -110,4 +110,4 @@ func TestCheckCertificate(t *testing.T) {
 	if len(mockNotifier.alerts) == 0 {
 		t.Error("Expected at least one alert for the test domain")
 	}
-} 
+}

@@ -9,15 +9,15 @@ func TestSendAlert(t *testing.T) {
 	tests := []struct {
 		name           string
 		domain         string
-		daysRemaining int
+		daysRemaining  int
 		expirationDate time.Time
-			threshold      int
-			wantErr        bool
+		threshold      int
+		wantErr        bool
 	}{
 		{
 			name:           "normal expiration",
 			domain:         "example.com",
-			daysRemaining: 25,
+			daysRemaining:  25,
 			expirationDate: time.Now().Add(25 * 24 * time.Hour),
 			threshold:      30,
 			wantErr:        true, // Will error because webhook URL is not valid
@@ -25,7 +25,7 @@ func TestSendAlert(t *testing.T) {
 		{
 			name:           "urgent expiration",
 			domain:         "test.com",
-			daysRemaining: 5,
+			daysRemaining:  5,
 			expirationDate: time.Now().Add(5 * 24 * time.Hour),
 			threshold:      7,
 			wantErr:        true, // Will error because webhook URL is not valid
@@ -42,4 +42,4 @@ func TestSendAlert(t *testing.T) {
 			}
 		})
 	}
-} 
+}

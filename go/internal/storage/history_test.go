@@ -112,4 +112,4 @@ func TestHistoryManager(t *testing.T) {
 	if len(emptyHistory) != 0 {
 		t.Errorf("LoadHistory() with no file should return empty map, got %v", emptyHistory)
 	}
-} 
+}

@@ -45,16 +45,16 @@ func TestRunSetup(t *testing.T) {
 		{
 			name: "valid configuration",
 			responses: []string{
-				"example.com,test.com",           // Domains
-				"7,14,30",                        // Threshold days
-				"https://hooks.slack.com/test",   // Webhook URL
+				"example.com,test.com",         // Domains
+				"7,14,30",                      // Threshold days
+				"https://hooks.slack.com/test", // Webhook URL
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid domains",
 			responses: []string{
-				"",                               // Empty domains
+				"", // Empty domains
 				"7,14,30",
 				"https://hooks.slack.com/test",
 			},
@@ -64,7 +64,7 @@ func TestRunSetup(t *testing.T) {
 			name: "invalid thresholds",
 			responses: []string{
 				"example.com",
-				"invalid,days",                   // Invalid threshold days
+				"invalid,days", // Invalid threshold days
 				"https://hooks.slack.com/test",
 			},
 			wantErr: true,
@@ -74,7 +74,7 @@ func TestRunSetup(t *testing.T) {
 			responses: []string{
 				"example.com",
 				"7,14,30",
-				"",                               // Empty webhook URL
+				"", // Empty webhook URL
 			},
 			wantErr: true,
 		},
@@ -181,4 +181,4 @@ func TestValidateInput(t *testing.T) {
 			}
 		})
 	}
-} 
+}

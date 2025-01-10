@@ -71,4 +71,4 @@ func (l *Logger) Warning(message string, details map[string]interface{}) {
 	l.log("WARNING", message, details)
 }
 
-var startTime = time.Now() 
+var startTime = time.Now()

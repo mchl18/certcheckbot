@@ -122,4 +122,4 @@ func TestLoggerCreateDirectory(t *testing.T) {
 	if _, err := os.Stat(logFile); os.IsNotExist(err) {
 		t.Error("Log file was not created")
 	}
-} 
+}

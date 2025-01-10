@@ -24,8 +24,8 @@ func New(domains []string, thresholdDays []int, slackWebhookURL string, logger *
 		domains:       domains,
 		thresholdDays: thresholdDays,
 		logger:        logger,
-			slackNotifier: alert.NewSlackNotifier(slackWebhookURL),
-			history:       storage.NewHistoryManager(projectRoot),
+		slackNotifier: alert.NewSlackNotifier(slackWebhookURL),
+		history:       storage.NewHistoryManager(projectRoot),
 	}
 }
 
@@ -71,21 +71,21 @@ func (c *CertificateChecker) checkCertificate(domain string) error {
 	expirationDate := cert.NotAfter
 
 	c.logger.Info(fmt.Sprintf("Certificate details retrieved for %s", domain), map[string]interface{}{
-		"domain":      domain,
-		"issuer":      cert.Issuer,
-		"subject":     cert.Subject,
-		"validFrom":   cert.NotBefore.Format(time.RFC3339),
-		"validTo":     expirationDate.Format(time.RFC3339),
+		"domain":       domain,
+		"issuer":       cert.Issuer,
+		"subject":      cert.Subject,
+		"validFrom":    cert.NotBefore.Format(time.RFC3339),
+		"validTo":      expirationDate.Format(time.RFC3339),
 		"serialNumber": cert.SerialNumber.String(),
-		"fingerprint": fmt.Sprintf("%x", cert.Signature),
-		"protocol":    conn.ConnectionState().Version,
+		"fingerprint":  fmt.Sprintf("%x", cert.Signature),
+		"protocol":     conn.ConnectionState().Version,
 	})
 
 	daysToExpiration := int(time.Until(expirationDate).Hours() / 24)
 
 	c.logger.Info(fmt.Sprintf("Certificate expiration analysis for %s", domain), map[string]interface{}{
 		"domain":         domain,
-		"daysRemaining": daysToExpiration,
+		"daysRemaining":  daysToExpiration,
 		"expirationDate": expirationDate.Format(time.RFC3339),
 		"status":         map[bool]string{true: "WARNING", false: "OK"}[daysToExpiration <= 30],
 	})
@@ -132,4 +132,4 @@ func (c *CertificateChecker) checkAndSendAlert(domain string, daysToExpiration i
 	}
 
 	return nil
-} 
+}

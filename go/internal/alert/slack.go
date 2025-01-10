@@ -46,4 +46,4 @@ func (s *SlackNotifier) SendAlert(domain string, daysToExpiration int, expiratio
 	}
 
 	return nil
-} 
+}

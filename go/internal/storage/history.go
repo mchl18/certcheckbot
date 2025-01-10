@@ -73,4 +73,4 @@ func (h *HistoryManager) SaveHistory(history History) error {
 	}
 
 	return nil
-} 
+}
