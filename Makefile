@@ -1,16 +1,13 @@
-.PHONY: all clean build-go deps-go run-go help
+.PHONY: all clean build-go deps-go run-go help dist
 
 all: build-go
-
-# Create empty .env if it doesn't exist
-.env:
-	touch .env
 
 # Create dist directory
 dist:
 	mkdir -p dist
+	touch .env
 
-build-go: .env
+build-go: dist
 	mkdir -p dist/go
 	cd go && go build -o ../dist/go/certchecker cmd/certchecker/main.go
 	cp .env dist/go/
