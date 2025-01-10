@@ -2,7 +2,7 @@ name: Release
 
 permissions:
   contents: write    # This declares the permission needed
-  
+
 on:
   push:
     tags:
@@ -29,39 +29,6 @@ jobs:
       - name: Get version from tag
         id: get_version
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
-      - name: Generate release info
-        run: |
-          echo "{
-            \"version\": \"$VERSION\",
-            \"releaseDate\": \"$(date -u +"%Y-%m-%dT%H:%M:%SZ")\",
-            \"downloads\": {
-              $(for file in dist/*.tar.gz dist/*.zip; do
-                filename=$(basename "$file")
-                echo "\"$filename\": \"${{ secrets.AWS_S3_ENDPOINT }}/${{ secrets.AWS_BUCKET }}/${VERSION}/$filename\","
-              done | sed '$s/,$//')
-            }
-          }" > dist/release.json
-
-      # - name: Upload distribution files to S3
-      #   uses: shallwefootball/s3-upload-action@master
-      #   with:
-      #     aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws_bucket: ${{ secrets.AWS_BUCKET }}
-      #     source_dir: 'dist'
-      #     destination_dir: ${{ env.VERSION }}
-      #     endpoint: ${{ secrets.AWS_S3_ENDPOINT }}
-
-      # - name: Upload latest release info
-      #   uses: shallwefootball/s3-upload-action@master
-      #   with:
-      #     aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      #     aws_bucket: ${{ secrets.AWS_BUCKET }}
-      #     source_dir: 'dist/release.json'
-      #     destination_dir: 'latest.json'
-      #     endpoint: ${{ secrets.AWS_S3_ENDPOINT }}
           
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
