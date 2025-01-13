@@ -3,59 +3,38 @@
   <h2>Configuration</h2>
   <form method="POST" action="/configure">
     <div class="form-group">
-      <label for="domains">Domains to Monitor (comma-separated)</label>
-      <input type="text" id="domains" name="domains" required />
+      <label for="domains">Domains to Monitor (comma-separated):</label>
+      <input type="text" id="domains" name="domains" value="{{.Domains}}" required />
     </div>
     <div class="form-group">
-      <label for="thresholds">Alert Thresholds in Days (comma-separated)</label>
-      <input
-        type="text"
-        id="thresholds"
-        name="thresholds"
-        placeholder="7,14,30"
-        required
-      />
+      <label for="thresholds">Threshold Days (comma-separated):</label>
+      <input type="text" id="thresholds" name="thresholds" value="{{.Thresholds}}" required />
     </div>
     <div class="form-group">
-      <label for="slack_webhook_url">Slack Webhook URL</label>
-      <input
-        type="text"
-        id="slack_webhook_url"
-        name="slack_webhook_url"
-        required
-      />
+      <label for="slack_webhook_url">Slack Webhook URL:</label>
+      <input type="text" id="slack_webhook_url" name="slack_webhook_url" value="{{.WebhookURL}}" required />
     </div>
     <div class="form-group">
-      <label for="heartbeat_hours">Heartbeat Interval (hours, optional)</label>
-      <input
-        type="text"
-        id="heartbeat_hours"
-        name="heartbeat_hours"
-        placeholder="24"
-      />
+      <label for="heartbeat_hours">Heartbeat Hours (optional):</label>
+      <input type="number" id="heartbeat_hours" name="heartbeat_hours" value="{{.HeartbeatHours}}" />
     </div>
     <div class="form-group">
-      <label for="interval_hours">Check Interval (hours, optional)</label>
-      <input
-        type="text"
-        id="interval_hours"
-        name="interval_hours"
-        placeholder="6"
-      />
+      <label for="interval_hours">Check Interval Hours:</label>
+      <input type="number" id="interval_hours" name="interval_hours" value="{{.IntervalHours}}" required />
     </div>
     <div class="form-group">
       <label>
-        <input type="checkbox" name="http_enabled" value="true" />
+        <input type="checkbox" id="http_enabled" name="http_enabled" {{if .HTTPEnabled}}checked{{end}} />
         Enable HTTP API
       </label>
     </div>
     <div class="form-group">
-      <label for="http_port">HTTP Port (optional)</label>
-      <input type="text" id="http_port" name="http_port" placeholder="8080" />
+      <label for="http_port">HTTP Port:</label>
+      <input type="number" id="http_port" name="http_port" value="{{.HTTPPort}}" />
     </div>
     <div class="form-group">
-      <label for="http_auth_token">HTTP Authentication Token</label>
-      <input type="text" id="http_auth_token" name="http_auth_token" required />
+      <label for="http_auth_token">HTTP Authentication Token:</label>
+      <input id="http_auth_token" name="http_auth_token" value="{{.HTTPAuthToken}}" />
     </div>
     <button type="submit">Save Configuration</button>
   </form>

@@ -46,8 +46,9 @@ func New(homeDir string, logger *logger.Logger) (*WebUI, error) {
 	configPath := filepath.Join(homeDir, ".certchecker", "config", ".env")
 	if _, err := os.Stat(configPath); err == nil {
 		cfg, err := config.Load(homeDir)
-		if err == nil && cfg.HTTPEnabled {
+		if err == nil {
 			w.authToken = cfg.HTTPAuthToken
+			w.configured = true
 		}
 	}
 
@@ -121,16 +122,43 @@ func (w *WebUI) handleIndex(rw http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type configData struct {
+	Domains       string
+	Thresholds    string
+	WebhookURL    string
+	HeartbeatHours string
+	IntervalHours  string
+	HTTPEnabled    bool
+	HTTPPort      string
+	HTTPAuthToken string
+}
+
 func (w *WebUI) handleConfigure(rw http.ResponseWriter, r *http.Request) {
 	// Check if already configured
 	configPath := filepath.Join(w.homeDir, ".certchecker", "config", ".env")
 	configured := false
+	var data configData
+
 	if _, err := os.Stat(configPath); err == nil {
 		configured = true
+		// Load existing config
+		cfg, err := config.Load(w.homeDir)
+		if err == nil {
+			data = configData{
+				Domains:        strings.Join(cfg.Domains, ","),
+				Thresholds:    strings.Trim(strings.Join(strings.Fields(fmt.Sprint(cfg.ThresholdDays)), ","), "[]"),
+				WebhookURL:     cfg.SlackWebhookURL,
+				HeartbeatHours: fmt.Sprintf("%d", cfg.HeartbeatHours),
+				IntervalHours:  fmt.Sprintf("%d", cfg.IntervalHours),
+				HTTPEnabled:    cfg.HTTPEnabled,
+				HTTPPort:      fmt.Sprintf("%d", cfg.HTTPPort),
+				HTTPAuthToken: cfg.HTTPAuthToken,
+			}
+		}
 	}
 
-	// If configured, require authentication
 	if configured {
+		// Check authentication
 		cookie, err := r.Cookie("session")
 		if err != nil || cookie.Value != w.authToken {
 			http.Redirect(rw, r, "/login", http.StatusSeeOther)
@@ -139,11 +167,19 @@ func (w *WebUI) handleConfigure(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "GET" {
-		data := map[string]interface{}{
+		if err := w.templates.ExecuteTemplate(rw, "base.html", map[string]interface{}{
 			"Content": "configure",
-		}
-		if err := w.templates.ExecuteTemplate(rw, "base.html", data); err != nil {
+			"Domains": data.Domains,
+			"Thresholds": data.Thresholds,
+			"WebhookURL": data.WebhookURL,
+			"HeartbeatHours": data.HeartbeatHours,
+			"IntervalHours": data.IntervalHours,
+			"HTTPEnabled": data.HTTPEnabled,
+			"HTTPPort": data.HTTPPort,
+			"HTTPAuthToken": data.HTTPAuthToken,
+		}); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		return
 	}

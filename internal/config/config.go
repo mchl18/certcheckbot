@@ -26,10 +26,6 @@ func Load(homeDir string) (*Config, error) {
 	configDir := filepath.Join(homeDir, ".certchecker", "config")
 	envPath := filepath.Join(configDir, ".env")
 
-	if err := godotenv.Load(envPath); err != nil {
-		return nil, fmt.Errorf("failed to load .env file: %w", err)
-	}
-
 	// Clear any existing environment variables
 	os.Unsetenv("DOMAINS")
 	os.Unsetenv("THRESHOLD_DAYS")
@@ -91,10 +87,9 @@ func Load(homeDir string) (*Config, error) {
 
 	httpEnabled := os.Getenv("HTTP_ENABLED") == "true"
 	var httpPort int
-	var httpAuthToken string
+	httpAuthToken := os.Getenv("HTTP_AUTH_TOKEN")
 
 	if httpEnabled {
-		httpAuthToken = os.Getenv("HTTP_AUTH_TOKEN")
 		if httpAuthToken == "" {
 			return nil, fmt.Errorf("HTTP_AUTH_TOKEN is required when HTTP server is enabled")
 		}
