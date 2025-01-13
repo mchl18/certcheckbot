@@ -14,6 +14,7 @@ import (
 
 	"github.com/mchl18/ssl-expiration-check-bot/internal/config"
 	"github.com/mchl18/ssl-expiration-check-bot/internal/logger"
+	"gopkg.in/yaml.v3"
 )
 
 //go:embed templates/*
@@ -43,7 +44,7 @@ func New(homeDir string, logger *logger.Logger) (*WebUI, error) {
 	}
 
 	// Check if config exists and load auth token if it does
-	configPath := filepath.Join(homeDir, ".certchecker", "config", ".env")
+	configPath := filepath.Join(homeDir, ".certchecker", "config", "config.yaml")
 	if _, err := os.Stat(configPath); err == nil {
 		cfg, err := config.Load(homeDir)
 		if err == nil {
@@ -101,7 +102,7 @@ func (w *WebUI) authMiddleware(next http.Handler) http.Handler {
 
 func (w *WebUI) handleIndex(rw http.ResponseWriter, r *http.Request) {
 	// Check if configured
-	configPath := filepath.Join(w.homeDir, ".certchecker", "config", ".env")
+	configPath := filepath.Join(w.homeDir, ".certchecker", "config", "config.yaml")
 	if _, err := os.Stat(configPath); err != nil {
 		http.Redirect(rw, r, "/configure", http.StatusSeeOther)
 		return
@@ -135,7 +136,7 @@ type configData struct {
 
 func (w *WebUI) handleConfigure(rw http.ResponseWriter, r *http.Request) {
 	// Check if already configured
-	configPath := filepath.Join(w.homeDir, ".certchecker", "config", ".env")
+	configPath := filepath.Join(w.homeDir, ".certchecker", "config", "config.yaml")
 	configured := false
 	var data configData
 
@@ -305,34 +306,16 @@ func (w *WebUI) saveConfig(cfg *config.Config) error {
 		return fmt.Errorf("failed to create config directory: %v", err)
 	}
 
-	// Convert thresholds back to string for .env file
-	var thresholdStrs []string
-	for _, t := range cfg.ThresholdDays {
-		thresholdStrs = append(thresholdStrs, strconv.Itoa(t))
+	// Marshal config to YAML
+	yamlData, err := yaml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal configuration to YAML: %v", err)
 	}
 
-	// Build .env content
-	content := fmt.Sprintf(`DOMAINS=%s
-THRESHOLD_DAYS=%s
-SLACK_WEBHOOK_URL=%s
-HEARTBEAT_HOURS=%d
-INTERVAL_HOURS=%d
-HTTP_ENABLED=%t
-HTTP_PORT=%d
-HTTP_AUTH_TOKEN=%s
-`, strings.Join(cfg.Domains, ","),
-		strings.Join(thresholdStrs, ","),
-		cfg.SlackWebhookURL,
-		cfg.HeartbeatHours,
-		cfg.IntervalHours,
-		cfg.HTTPEnabled,
-		cfg.HTTPPort,
-		cfg.HTTPAuthToken)
-
-	// Write to .env file
-	envPath := filepath.Join(configDir, ".env")
-	if err := os.WriteFile(envPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write .env file: %v", err)
+	// Write to config.yaml file
+	configPath := filepath.Join(configDir, "config.yaml")
+	if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+		return fmt.Errorf("failed to write config.yaml file: %v", err)
 	}
 
 	return nil

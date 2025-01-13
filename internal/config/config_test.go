@@ -7,19 +7,46 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoad(t *testing.T) {
 	tempDir := t.TempDir()
 
 	tests := []struct {
-		name    string
-		envVars map[string]string
-		want    *Config
-		wantErr bool
+		name       string
+		yamlConfig *Config
+		envVars    map[string]string
+		want       *Config
+		wantErr    bool
 	}{
 		{
-			name: "valid configuration",
+			name: "valid yaml configuration only",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com", "test.com"},
+				ThresholdDays:   []int{7, 14, 30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+				HeartbeatHours:  24,
+				IntervalHours:   12,
+				HTTPEnabled:     true,
+				HTTPPort:        8080,
+				HTTPAuthToken:   "test-token",
+			},
+			want: &Config{
+				Domains:         []string{"example.com", "test.com"},
+				ThresholdDays:   []int{7, 14, 30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+				HeartbeatHours:  24,
+				IntervalHours:   12,
+				HTTPEnabled:     true,
+				HTTPPort:        8080,
+				HTTPAuthToken:   "test-token",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid env configuration only",
 			envVars: map[string]string{
 				"DOMAINS":           "example.com,test.com",
 				"THRESHOLD_DAYS":    "7,14,30",
@@ -42,50 +69,63 @@ func TestLoad(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "minimal configuration",
+			name: "env vars override yaml config",
+			yamlConfig: &Config{
+				Domains:         []string{"yaml.com"},
+				ThresholdDays:   []int{10, 20},
+				SlackWebhookURL: "https://hooks.slack.com/services/yaml",
+				HeartbeatHours:  48,
+				IntervalHours:   24,
+				HTTPEnabled:     false,
+				HTTPPort:        9090,
+				HTTPAuthToken:   "yaml-token",
+			},
 			envVars: map[string]string{
-				"DOMAINS":           "example.com",
-				"THRESHOLD_DAYS":    "30",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
+				"DOMAINS":           "env.com",
+				"THRESHOLD_DAYS":    "15,30",
+				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/env",
+				"HEARTBEAT_HOURS":   "72",
+				"HTTP_ENABLED":      "true",
+				"HTTP_PORT":         "8080",
+				"HTTP_AUTH_TOKEN":   "env-token",
+			},
+			want: &Config{
+				Domains:         []string{"env.com"},
+				ThresholdDays:   []int{15, 30},
+				SlackWebhookURL: "https://hooks.slack.com/services/env",
+				HeartbeatHours:  72,
+				IntervalHours:   24,
+				HTTPEnabled:     true,
+				HTTPPort:        8080,
+				HTTPAuthToken:   "env-token",
+			},
+			wantErr: false,
+		},
+		{
+			name: "minimal yaml configuration",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com"},
+				ThresholdDays:   []int{30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
 			},
 			want: &Config{
 				Domains:         []string{"example.com"},
 				ThresholdDays:   []int{30},
 				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
-				HeartbeatHours:  0,
-				IntervalHours:   6, // default value
-				HTTPEnabled:     false,
-				HTTPPort:        0,
-				HTTPAuthToken:   "",
+				IntervalHours:   6,  // default value
+				HTTPPort:        8080, // default value
 			},
 			wantErr: false,
 		},
 		{
-			name: "missing domains",
-			envVars: map[string]string{
-				"THRESHOLD_DAYS":    "30",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
+			name: "missing required fields in yaml",
+			yamlConfig: &Config{
+				Domains: []string{"example.com"},
 			},
 			wantErr: true,
 		},
 		{
-			name: "missing threshold days",
-			envVars: map[string]string{
-				"DOMAINS":           "example.com",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
-			},
-			wantErr: true,
-		},
-		{
-			name: "missing webhook URL",
-			envVars: map[string]string{
-				"DOMAINS":        "example.com",
-				"THRESHOLD_DAYS": "30",
-			},
-			wantErr: true,
-		},
-		{
-			name: "invalid threshold days",
+			name: "invalid threshold days in env",
 			envVars: map[string]string{
 				"DOMAINS":           "example.com",
 				"THRESHOLD_DAYS":    "invalid",
@@ -94,57 +134,63 @@ func TestLoad(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid heartbeat hours",
+			name: "invalid heartbeat hours in env",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com"},
+				ThresholdDays:   []int{30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+			},
 			envVars: map[string]string{
-				"DOMAINS":           "example.com",
-				"THRESHOLD_DAYS":    "30",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
-				"HEARTBEAT_HOURS":   "invalid",
+				"HEARTBEAT_HOURS": "invalid",
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid interval hours",
+			name: "invalid interval hours in env",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com"},
+				ThresholdDays:   []int{30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+			},
 			envVars: map[string]string{
-				"DOMAINS":             "example.com",
-				"THRESHOLD_DAYS":      "30",
-				"SLACK_WEBHOOK_URL":   "https://hooks.slack.com/services/xxx",
 				"CHECK_INTERVAL_HOURS": "invalid",
 			},
 			wantErr: true,
 		},
 		{
-			name: "invalid HTTP port",
+			name: "invalid HTTP port in env",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com"},
+				ThresholdDays:   []int{30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+				HTTPEnabled:     true,
+				HTTPAuthToken:   "test-token",
+			},
 			envVars: map[string]string{
-				"DOMAINS":           "example.com",
-				"THRESHOLD_DAYS":    "30",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
-				"HTTP_ENABLED":      "true",
-				"HTTP_PORT":         "invalid",
-				"HTTP_AUTH_TOKEN":   "test-token",
+				"HTTP_PORT": "invalid",
 			},
 			wantErr: true,
 		},
 		{
-			name: "HTTP enabled without token",
-			envVars: map[string]string{
-				"DOMAINS":           "example.com",
-				"THRESHOLD_DAYS":    "30",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
-				"HTTP_ENABLED":      "true",
-				"HTTP_PORT":         "8080",
+			name: "HTTP enabled without token in yaml",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com"},
+				ThresholdDays:   []int{30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+				HTTPEnabled:     true,
+				HTTPPort:        8080,
 			},
 			wantErr: true,
 		},
 		{
-			name: "HTTP port out of range",
-			envVars: map[string]string{
-				"DOMAINS":           "example.com",
-				"THRESHOLD_DAYS":    "30",
-				"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/xxx",
-				"HTTP_ENABLED":      "true",
-				"HTTP_PORT":         "70000",
-				"HTTP_AUTH_TOKEN":   "test-token",
+			name: "HTTP port out of range in yaml",
+			yamlConfig: &Config{
+				Domains:         []string{"example.com"},
+				ThresholdDays:   []int{30},
+				SlackWebhookURL: "https://hooks.slack.com/services/xxx",
+				HTTPEnabled:     true,
+				HTTPPort:        70000,
+				HTTPAuthToken:   "test-token",
 			},
 			wantErr: true,
 		},
@@ -159,15 +205,26 @@ func TestLoad(t *testing.T) {
 				t.Fatalf("Failed to create config directory: %v", err)
 			}
 
-			// Create .env file with test variables
-			envPath := filepath.Join(configDir, ".env")
-			var envContent strings.Builder
-			for k, v := range tt.envVars {
-				envContent.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+			// Create config.yaml if yamlConfig is provided
+			if tt.yamlConfig != nil {
+				yamlData, err := yaml.Marshal(tt.yamlConfig)
+				if err != nil {
+					t.Fatalf("Failed to marshal YAML config: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), yamlData, 0644); err != nil {
+					t.Fatalf("Failed to write config.yaml: %v", err)
+				}
 			}
 
-			if err := os.WriteFile(envPath, []byte(envContent.String()), 0644); err != nil {
-				t.Fatalf("Failed to write .env file: %v", err)
+			// Create .env file if envVars are provided
+			if tt.envVars != nil {
+				var envContent strings.Builder
+				for k, v := range tt.envVars {
+					envContent.WriteString(fmt.Sprintf("%s=%s\n", k, v))
+				}
+				if err := os.WriteFile(filepath.Join(configDir, ".env"), []byte(envContent.String()), 0644); err != nil {
+					t.Fatalf("Failed to write .env file: %v", err)
+				}
 			}
 
 			got, err := Load(testDir)
