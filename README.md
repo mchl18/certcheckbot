@@ -39,18 +39,27 @@ After installation, restart your terminal/PowerShell for the PATH changes to tak
 
 ## Configuration
 
-You can configure the service in two ways:
+You can configure the service in three ways:
 
-### 1. Using the Web UI
+### 1. Interactive Setup
+
+Simply run the service without any flags:
+```bash
+certchecker
+```
+
+You'll be prompted to choose between web UI or command line configuration.
+
+### 2. Using the Web UI
 
 Start the service with the web UI:
 ```bash
 certchecker -webui
 ```
 
-Then open http://localhost:8080 in your browser. On first run, you'll be prompted to configure the service. After configuration, you'll need to use your chosen authentication token to log in.
+Then open http://localhost:8081 in your browser. On first run, you'll be prompted to configure the service. After configuration, you'll need to use your chosen authentication token to log in.
 
-### 2. Using the Command Line
+### 3. Using the Command Line
 
 Run the configuration command:
 ```bash
@@ -65,29 +74,34 @@ You'll be prompted for:
 - Optional: Check interval in hours (defaults to 6)
 - Optional: HTTP server settings (enabled/disabled, port, auth token)
 
-Configuration is stored in `$HOME/.certchecker/config/.env`. You can modify this file while the service is stopped without rebuilding.
+Configuration is stored in `$HOME/.certchecker/config/config.yaml`. You can modify this file while the service is stopped without rebuilding.
 
 Example configuration:
-```env
+```yaml
 # Domains to monitor
-DOMAINS=example.com,test.com
+domains:
+  - example.com
+  - test.com
 
 # Alert thresholds in days
-THRESHOLD_DAYS=7,14,30
+threshold_days:
+  - 7
+  - 14
+  - 30
 
 # Slack webhook URL for notifications
-SLACK_WEBHOOK_URL=https://hooks.slack.com/services/xxx
+slack_webhook_url: https://hooks.slack.com/services/xxx
 
 # Optional: Send heartbeat messages every N hours
-HEARTBEAT_HOURS=24
+heartbeat_hours: 24
 
 # Optional: Check certificates every N hours (default: 6)
-CHECK_INTERVAL_HOURS=6
+interval_hours: 6
 
 # Optional: HTTP server settings
-HTTP_ENABLED=true
-HTTP_PORT=8080
-HTTP_AUTH_TOKEN=your-secret-token
+http_enabled: true
+http_port: 8080
+http_auth_token: your-secret-token
 ```
 
 ## Usage
@@ -116,7 +130,7 @@ The web interface provides:
 - Log viewing
 - Token-based authentication
 
-Access the web UI at http://localhost:8080 after starting with the `-webui` flag.
+Access the web UI at http://localhost:8081 after starting with the `-webui` flag.
 
 ## HTTP API
 
@@ -167,7 +181,7 @@ All application data is stored in `$HOME/.certchecker/`:
 .certchecker/
 ├── bin/           # Binary files
 ├── config/        # Configuration files
-│   └── .env      # Environment variables
+│   └── config.yaml # Configuration file
 ├── logs/          # Log files
 │   └── cert-checker.log
 └── data/          # Application data

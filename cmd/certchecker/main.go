@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mchl18/ssl-expiration-check-bot/internal/checker"
@@ -13,6 +15,27 @@ import (
 	"github.com/mchl18/ssl-expiration-check-bot/internal/server"
 	"github.com/mchl18/ssl-expiration-check-bot/internal/webui"
 )
+
+func promptForConfigMethod() (bool, error) {
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("\nWould you like to configure via web UI or command line? [web/cli]: ")
+		choice, err := reader.ReadString('\n')
+		if err != nil {
+			return false, fmt.Errorf("failed to read input: %v", err)
+		}
+		
+		choice = strings.TrimSpace(strings.ToLower(choice))
+		switch choice {
+		case "web", "webui", "w":
+			return true, nil
+		case "cli", "cmd", "c":
+			return false, nil
+		default:
+			fmt.Println("Please enter 'web' or 'cli'")
+		}
+	}
+}
 
 func main() {
 	// Parse command line flags
@@ -52,6 +75,29 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load(homeDir)
 	if err != nil {
+		fmt.Printf("Configuration error: %v\n", err)
+		
+		// If webui flag is not explicitly set, prompt for method
+		if !*webUIFlag {
+			useWebUI, err := promptForConfigMethod()
+			if err != nil {
+				fmt.Printf("Error: %v\n", err)
+				os.Exit(1)
+			}
+			*webUIFlag = useWebUI
+			*configureFlag = !useWebUI
+		}
+
+		if *configureFlag {
+			if err := config.RunSetup(); err != nil {
+				fmt.Printf("Failed to run setup: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("Configuration completed successfully!")
+			fmt.Println("Please restart the application to apply the configuration.")
+			return
+		}
+
 		if *webUIFlag {
 			// Start web UI for initial configuration
 			webUI, err := webui.New(homeDir, logger)
@@ -69,11 +115,6 @@ func main() {
 				})
 			}
 			select {}
-		} else {
-			// Only show configuration message if no config exists and no webui flag
-			fmt.Printf("Configuration error: %v\n", err)
-			fmt.Println("Run with -configure flag for CLI setup or -webui flag for web-based setup.")
-			os.Exit(1)
 		}
 	}
 
