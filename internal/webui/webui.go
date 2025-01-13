@@ -29,37 +29,29 @@ type WebUI struct {
 }
 
 func New(homeDir string, logger *logger.Logger) (*WebUI, error) {
-	// Parse base template first
-	templates, err := template.ParseFS(templateFS, "templates/base.html")
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse base template: %v", err)
-	}
-
-	// Parse other templates
-	templates, err = templates.ParseFS(templateFS, "templates/login.html", "templates/configure.html", "templates/logs.html", "templates/index.html")
+	// Parse templates
+	templates, err := template.ParseFS(templateFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse templates: %v", err)
 	}
 
-	// Check if config exists and load auth token
+	// Create WebUI instance
+	w := &WebUI{
+		homeDir:   homeDir,
+		logger:    logger,
+		templates: templates,
+	}
+
+	// Check if config exists and load auth token if it does
 	configPath := filepath.Join(homeDir, ".certchecker", "config", ".env")
-	configured := false
-	var authToken string
 	if _, err := os.Stat(configPath); err == nil {
-		configured = true
-		// Load config to get auth token
-		if cfg, err := config.Load(homeDir); err == nil {
-			authToken = cfg.HTTPAuthToken
+		cfg, err := config.Load(homeDir)
+		if err == nil && cfg.HTTPEnabled {
+			w.authToken = cfg.HTTPAuthToken
 		}
 	}
 
-	return &WebUI{
-		homeDir:    homeDir,
-		logger:     logger,
-		templates:  templates,
-		configured: configured,
-		authToken:  authToken,
-	}, nil
+	return w, nil
 }
 
 func (w *WebUI) Start() error {
@@ -107,31 +99,55 @@ func (w *WebUI) authMiddleware(next http.Handler) http.Handler {
 }
 
 func (w *WebUI) handleIndex(rw http.ResponseWriter, r *http.Request) {
-	w.mu.RLock()
-	configured := w.configured
-	w.mu.RUnlock()
-
-	if !configured {
+	// Check if configured
+	configPath := filepath.Join(w.homeDir, ".certchecker", "config", ".env")
+	if _, err := os.Stat(configPath); err != nil {
 		http.Redirect(rw, r, "/configure", http.StatusSeeOther)
 		return
 	}
 
-	data := struct {
-		Content    string
-		Configured bool
-	}{
-		Content:    "index",
-		Configured: configured,
+	// Require authentication
+	cookie, err := r.Cookie("session")
+	if err != nil || cookie.Value != w.authToken {
+		http.Redirect(rw, r, "/login", http.StatusSeeOther)
+		return
 	}
 
-	rw.Header().Set("Content-Type", "text/html; charset=utf-8")
+	data := map[string]interface{}{
+		"Content": "index",
+	}
 	if err := w.templates.ExecuteTemplate(rw, "base.html", data); err != nil {
-		http.Error(rw, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
-		return
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func (w *WebUI) handleConfigure(rw http.ResponseWriter, r *http.Request) {
+	// Check if already configured
+	configPath := filepath.Join(w.homeDir, ".certchecker", "config", ".env")
+	configured := false
+	if _, err := os.Stat(configPath); err == nil {
+		configured = true
+	}
+
+	// If configured, require authentication
+	if configured {
+		cookie, err := r.Cookie("session")
+		if err != nil || cookie.Value != w.authToken {
+			http.Redirect(rw, r, "/login", http.StatusSeeOther)
+			return
+		}
+	}
+
+	if r.Method == "GET" {
+		data := map[string]interface{}{
+			"Content": "configure",
+		}
+		if err := w.templates.ExecuteTemplate(rw, "base.html", data); err != nil {
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
 			http.Error(rw, "Failed to parse form", http.StatusBadRequest)
