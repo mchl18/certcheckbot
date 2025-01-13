@@ -1,4 +1,4 @@
-# SSL Certificate Checker
+# SSL Expiration Check Bot
 
 A service that monitors SSL certificates for a list of domains and sends alerts to Slack when certificates are nearing expiration.
 
