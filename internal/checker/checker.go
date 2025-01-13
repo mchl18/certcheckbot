@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/mchl18/certcheckbot/internal/logger"
-	"github.com/mchl18/certcheckbot/internal/storage"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/logger"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/storage"
 )
 
 // Make getCertificate a variable so it can be mocked in tests

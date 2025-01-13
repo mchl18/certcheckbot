@@ -9,6 +9,7 @@ A service that monitors SSL certificates for a list of domains and sends alerts 
 - Slack notifications for expiring certificates
 - Optional heartbeat messages to confirm service is running
 - HTTP API for health checks and log access
+- Web UI for configuration and log viewing
 - Automatic backup of alert history
 - Structured logging with file and console output
 
@@ -37,6 +38,19 @@ Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.
 After installation, restart your terminal/PowerShell for the PATH changes to take effect.
 
 ## Configuration
+
+You can configure the service in two ways:
+
+### 1. Using the Web UI
+
+Start the service with the web UI:
+```bash
+certchecker -webui
+```
+
+Then open http://localhost:8080 in your browser. On first run, you'll be prompted to configure the service. After configuration, you'll need to use your chosen authentication token to log in.
+
+### 2. Using the Command Line
 
 Run the configuration command:
 ```bash
@@ -80,6 +94,10 @@ HTTP_AUTH_TOKEN=your-secret-token
 
 Run the service:
 ```bash
+# Run with web UI (recommended)
+certchecker -webui
+
+# Run without web UI
 certchecker
 ```
 
@@ -88,6 +106,17 @@ The service will:
 2. Send alerts to Slack if any certificates are expiring soon
 3. Send heartbeat messages if configured
 4. Start HTTP server if enabled
+5. Start web UI if -webui flag is used
+
+## Web UI
+
+The web interface provides:
+- Initial setup wizard
+- Configuration management
+- Log viewing
+- Token-based authentication
+
+Access the web UI at http://localhost:8080 after starting with the `-webui` flag.
 
 ## HTTP API
 
@@ -149,7 +178,7 @@ All application data is stored in `$HOME/.certchecker/`:
 
 Clone and build:
 ```bash
-git clone https://github.com/mchl18/certchecker.git
+git clone https://github.com/mchl18/ssl-expiration-check-bot.git
 cd certchecker
 make test    # Run tests
 make build   # Build binary

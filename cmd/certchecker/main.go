@@ -7,15 +7,17 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/mchl18/certcheckbot/internal/checker"
-	"github.com/mchl18/certcheckbot/internal/config"
-	"github.com/mchl18/certcheckbot/internal/logger"
-	"github.com/mchl18/certcheckbot/internal/server"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/checker"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/config"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/logger"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/server"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/webui"
 )
 
 func main() {
 	// Parse command line flags
 	configureFlag := flag.Bool("configure", false, "Run the configuration setup")
+	webUIFlag := flag.Bool("webui", false, "Start the web UI")
 	flag.Parse()
 
 	if *configureFlag {
@@ -36,13 +38,10 @@ func main() {
 
 	// Create necessary directories
 	certCheckerDir := filepath.Join(homeDir, ".certchecker")
-	configDir := filepath.Join(certCheckerDir, "config")
-	logsDir := filepath.Join(certCheckerDir, "logs")
-	dataDir := filepath.Join(certCheckerDir, "data")
-
-	for _, dir := range []string{certCheckerDir, configDir, logsDir, dataDir} {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			fmt.Printf("Failed to create directory %s: %v\n", dir, err)
+	for _, dir := range []string{"config", "logs", "data"} {
+		path := filepath.Join(certCheckerDir, dir)
+		if err := os.MkdirAll(path, 0755); err != nil {
+			fmt.Printf("Failed to create directory %s: %v\n", path, err)
 			os.Exit(1)
 		}
 	}
@@ -53,54 +52,100 @@ func main() {
 	// Load configuration
 	cfg, err := config.Load(homeDir)
 	if err != nil {
-		logger.Error("Failed to load configuration", map[string]interface{}{"error": err.Error()})
+		logger.Error("Failed to load configuration", map[string]interface{}{
+			"error": err.Error(),
+		})
 		os.Exit(1)
 	}
 
 	// Initialize certificate checker
-	certChecker := checker.New(cfg.Domains, cfg.ThresholdDays, cfg.SlackWebhookURL, logger, dataDir)
+	certChecker := checker.New(cfg.Domains, cfg.ThresholdDays, cfg.SlackWebhookURL, logger, filepath.Join(certCheckerDir, "data"))
 
-	// Initialize HTTP server if enabled
-	if cfg.HTTPEnabled {
-		server := server.New(certChecker, cfg.HTTPAuthToken, homeDir)
+	// Start web UI if enabled
+	if *webUIFlag {
+		webUI, err := webui.New(homeDir, logger)
+		if err != nil {
+			logger.Error("Failed to initialize web UI", map[string]interface{}{
+				"error": err.Error(),
+			})
+			os.Exit(1)
+		}
 		go func() {
-			logger.Info("Starting HTTP server", map[string]interface{}{"port": cfg.HTTPPort})
-			if err := server.Start(cfg.HTTPPort); err != nil {
-				logger.Error("HTTP server failed", map[string]interface{}{"error": err.Error()})
+			fmt.Println("\nWeb UI is available at: http://localhost:8081")
+			fmt.Println("Use this interface to configure the service and view logs.")
+			if err := webUI.Start(); err != nil {
+				logger.Error("Web UI failed", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}()
+	}
+
+	// Start HTTP server if enabled
+	if cfg.HTTPEnabled {
+		srv := server.New(certChecker, cfg.HTTPAuthToken, homeDir)
+		go func() {
+			logger.Info("Starting HTTP server", map[string]interface{}{
+				"port": cfg.HTTPPort,
+			})
+			if err := srv.Start(cfg.HTTPPort); err != nil {
+				logger.Error("HTTP server failed", map[string]interface{}{
+					"error": err.Error(),
+				})
 			}
 		}()
 	}
 
 	// Start heartbeat if enabled
+	var heartbeatTicker *time.Ticker
 	if cfg.HeartbeatHours > 0 {
 		heartbeatInterval := time.Duration(cfg.HeartbeatHours) * time.Hour
-		logger.Info("Heartbeat enabled", map[string]interface{}{"interval": heartbeatInterval.String()})
+		heartbeatTicker = time.NewTicker(heartbeatInterval)
 		go func() {
-			ticker := time.NewTicker(heartbeatInterval)
-			defer ticker.Stop()
-
-			for range ticker.C {
+			for range heartbeatTicker.C {
 				if err := certChecker.SendHeartbeat(); err != nil {
-					logger.Error("Failed to send heartbeat", map[string]interface{}{"error": err.Error()})
+					logger.Error("Failed to send heartbeat", map[string]interface{}{
+						"error": err.Error(),
+					})
 				}
 			}
 		}()
+		logger.Info("Heartbeat enabled", map[string]interface{}{
+			"interval": heartbeatInterval.String(),
+		})
 	}
 
-	// Start certificate checking loop
-	checkInterval := time.Duration(cfg.IntervalHours) * time.Hour
+	// Start certificate check loop
+	checkInterval := 6 * time.Hour
+	if cfg.IntervalHours > 0 {
+		checkInterval = time.Duration(cfg.IntervalHours) * time.Hour
+	}
+
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
+	if heartbeatTicker != nil {
+		defer heartbeatTicker.Stop()
+	}
+
+	logger.Info("Starting certificate checker", map[string]interface{}{
+		"check_interval": checkInterval.String(),
+		"domains":        cfg.Domains,
+		"thresholds":     cfg.ThresholdDays,
+	})
 
 	// Initial check
 	if err := certChecker.CheckCertificates(); err != nil {
-		logger.Error("Failed to check certificates", map[string]interface{}{"error": err.Error()})
+		logger.Error("Certificate check failed", map[string]interface{}{
+			"error": err.Error(),
+		})
 	}
 
-	// Continuous checking
+	// Main loop
 	for range ticker.C {
 		if err := certChecker.CheckCertificates(); err != nil {
-			logger.Error("Failed to check certificates", map[string]interface{}{"error": err.Error()})
+			logger.Error("Certificate check failed", map[string]interface{}{
+				"error": err.Error(),
+			})
 		}
 	}
 }

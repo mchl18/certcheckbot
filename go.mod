@@ -1,4 +1,4 @@
-module github.com/mchl18/certcheckbot
+module github.com/mchl18/ssl-expiration-check-bot
 
 go 1.21
 

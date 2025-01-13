@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mchl18/certcheckbot/internal/logger"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/logger"
 )
 
 // Mock certificate for testing

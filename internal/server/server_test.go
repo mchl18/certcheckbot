@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/mchl18/certcheckbot/internal/checker"
-	"github.com/mchl18/certcheckbot/internal/logger"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/checker"
+	"github.com/mchl18/ssl-expiration-check-bot/internal/logger"
 )
 
 func TestServer(t *testing.T) {
