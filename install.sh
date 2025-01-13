@@ -36,7 +36,7 @@ mkdir -p "${INSTALL_DIR}/"{bin,config,logs,data}
 
 # Get the latest release URL
 echo -e "${BLUE}Fetching latest release...${NC}"
-LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/mchl18/certcheckbot/releases/latest | grep "browser_download_url.*${OS}-${ARCH}.tar.gz" | cut -d '"' -f 4)
+LATEST_RELEASE_URL=$(curl -s https://api.github.com/repos/mchl18/ssl-expiration-check-bot/releases/latest | grep "browser_download_url.*${OS}-${ARCH}.tar.gz" | cut -d '"' -f 4)
 
 if [ -z "$LATEST_RELEASE_URL" ]; then
     echo -e "${RED}Failed to find release for ${OS}-${ARCH}${NC}"
@@ -65,4 +65,4 @@ echo -e "1. ${BLUE}Add to your PATH by adding this line to your shell config (.b
 echo -e "   ${GREEN}export PATH=\"\$PATH:\$HOME/.certchecker/bin\"${NC}"
 echo
 echo -e "2. ${BLUE}Configure the service by running:${NC}"
-echo -e "   ${GREEN}certchecker config${NC}" 
+echo -e "   ${GREEN}certchecker -configure${NC}" 
