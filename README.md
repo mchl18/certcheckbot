@@ -1,4 +1,4 @@
-# SSL Expiration Check Bot
+# SSL Certificate Checker
 
 A service that monitors SSL certificates for a list of domains and sends alerts to Slack when certificates are nearing expiration.
 
@@ -14,13 +14,27 @@ A service that monitors SSL certificates for a list of domains and sends alerts 
 
 ## Installation
 
+### Linux/macOS
+
 ```bash
 # Download and install
-curl -sSL https://raw.githubusercontent.com/mchl18/certchecker/main/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/mchl18/ssl-expiration-check-bot/main/install/install.sh | bash
 
 # Add to your shell configuration (~/.bashrc, ~/.zshrc, etc.):
 export PATH="$HOME/.certchecker/bin:$PATH"
 ```
+
+### Windows
+
+```powershell
+# Download and run installer (in PowerShell)
+Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/mchl18/ssl-expiration-check-bot/main/install/install.ps1')
+
+# Add to PATH (run in PowerShell as Administrator)
+[Environment]::SetEnvironmentVariable('Path', $env:Path + ';$env:USERPROFILE\.certchecker\bin', 'User')
+```
+
+After installation, restart your terminal/PowerShell for the PATH changes to take effect.
 
 ## Configuration
 
