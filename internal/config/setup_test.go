@@ -1,26 +1,12 @@
 package config
 
 import (
-	"io"
+	"bufio"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
-
-type mockReader struct {
-	responses []string
-	index     int
-}
-
-func (m *mockReader) ReadString(delim byte) (string, error) {
-	if m.index >= len(m.responses) {
-		return "", io.EOF
-	}
-	response := m.responses[m.index]
-	m.index++
-	return response + "\n", nil
-}
 
 func TestRunSetup(t *testing.T) {
 	// Create a temporary directory for test config
@@ -30,154 +16,212 @@ func TestRunSetup(t *testing.T) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Create config directory
-	configDir := filepath.Join(tempDir, ".certchecker", "config")
-	if err := os.MkdirAll(configDir, 0755); err != nil {
-		t.Fatalf("Failed to create config dir: %v", err)
-	}
+	// Set up test environment
+	t.Setenv("HOME", tempDir)
 
-	// Set up test cases
+	// Test cases
 	tests := []struct {
-		name      string
-		responses []string
-		wantErr   bool
+		name     string
+		input    string
+		wantErr  bool
+		validate func(t *testing.T, envPath string)
 	}{
 		{
 			name: "valid configuration",
-			responses: []string{
-				"example.com,test.com",         // Domains
-				"7,14,30",                      // Threshold days
-				"https://hooks.slack.com/test", // Webhook URL
-			},
+			input: `example.com,test.com
+7,14,30
+https://hooks.slack.com/services/test
+24
+6
+y
+8080
+test-token
+`,
 			wantErr: false,
+			validate: func(t *testing.T, envPath string) {
+				content, err := os.ReadFile(envPath)
+				if err != nil {
+					t.Errorf("Failed to read .env file: %v", err)
+					return
+				}
+
+				// Check required fields
+				fields := map[string]string{
+					"DOMAINS":           "example.com,test.com",
+					"THRESHOLD_DAYS":    "7,14,30",
+					"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/test",
+					"HEARTBEAT_HOURS":   "24",
+					"INTERVAL_HOURS":    "6",
+					"HTTP_ENABLED":      "true",
+					"HTTP_PORT":         "8080",
+					"HTTP_AUTH_TOKEN":   "test-token",
+				}
+
+				for key, want := range fields {
+					if !strings.Contains(string(content), key+"="+want) {
+						t.Errorf("Missing or incorrect %s: want %s", key, want)
+					}
+				}
+			},
 		},
 		{
-			name: "invalid domains",
-			responses: []string{
-				"", // Empty domains
-				"7,14,30",
-				"https://hooks.slack.com/test",
+			name: "minimal configuration",
+			input: `example.com
+30
+https://hooks.slack.com/services/test
+
+
+n
+
+
+`,
+			wantErr: false,
+			validate: func(t *testing.T, envPath string) {
+				content, err := os.ReadFile(envPath)
+				if err != nil {
+					t.Errorf("Failed to read .env file: %v", err)
+					return
+				}
+
+				// Check required fields
+				fields := map[string]string{
+					"DOMAINS":           "example.com",
+					"THRESHOLD_DAYS":    "30",
+					"SLACK_WEBHOOK_URL": "https://hooks.slack.com/services/test",
+				}
+
+				for key, want := range fields {
+					if !strings.Contains(string(content), key+"="+want) {
+						t.Errorf("Missing or incorrect %s: want %s", key, want)
+					}
+				}
+
+				// Check optional fields are not set
+				optionalFields := []string{
+					"HEARTBEAT_HOURS",
+					"HTTP_ENABLED",
+					"HTTP_PORT",
+					"HTTP_AUTH_TOKEN",
+				}
+
+				for _, field := range optionalFields {
+					if strings.Contains(string(content), field+"=") {
+						t.Errorf("Optional field %s should not be set", field)
+					}
+				}
 			},
+		},
+		{
+			name: "empty domains",
+			input: `
+30
+https://hooks.slack.com/services/test
+
+
+n
+
+
+`,
 			wantErr: true,
 		},
 		{
-			name: "invalid thresholds",
-			responses: []string{
-				"example.com",
-				"invalid,days", // Invalid threshold days
-				"https://hooks.slack.com/test",
-			},
+			name: "empty threshold days",
+			input: `example.com
+
+https://hooks.slack.com/services/test
+
+
+n
+
+
+`,
 			wantErr: true,
 		},
 		{
-			name: "empty webhook",
-			responses: []string{
-				"example.com",
-				"7,14,30",
-				"", // Empty webhook URL
-			},
+			name: "empty webhook URL",
+			input: `example.com
+30
+
+
+
+n
+
+
+`,
+			wantErr: true,
+		},
+		{
+			name: "invalid heartbeat hours",
+			input: `example.com
+30
+https://hooks.slack.com/services/test
+invalid
+6
+n
+
+
+`,
+			wantErr: true,
+		},
+		{
+			name: "invalid interval hours",
+			input: `example.com
+30
+https://hooks.slack.com/services/test
+
+invalid
+n
+
+
+`,
+			wantErr: true,
+		},
+		{
+			name: "invalid HTTP port",
+			input: `example.com
+30
+https://hooks.slack.com/services/test
+
+
+y
+invalid
+test-token
+`,
+			wantErr: true,
+		},
+		{
+			name: "HTTP enabled without token",
+			input: `example.com
+30
+https://hooks.slack.com/services/test
+
+
+y
+8080
+
+`,
 			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create mock reader
-			mockReader := &mockReader{responses: tt.responses}
+			// Create a temporary directory for test
+			tempDir := t.TempDir()
+			t.Setenv("HOME", tempDir)
 
-			// Create test environment
-			envFile := filepath.Join(configDir, ".env")
+			// Create a reader with the test input
+			reader := bufio.NewReader(strings.NewReader(tt.input))
+			err := runSetupWithReader(reader)
 
-			// Run setup with mock input
-			err := runSetupWithReader(envFile, mockReader)
-
-			// Check error
 			if (err != nil) != tt.wantErr {
-				t.Errorf("RunSetup() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("runSetupWithReader() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 
-			// If setup should succeed, verify the config file
-			if !tt.wantErr {
-				content, err := os.ReadFile(envFile)
-				if err != nil {
-					t.Fatalf("Failed to read config file: %v", err)
-				}
-
-				config := string(content)
-
-				// Check if all required fields are present
-				if !strings.Contains(config, "DOMAINS=") {
-					t.Error("Config file missing DOMAINS")
-				}
-				if !strings.Contains(config, "THRESHOLD_DAYS=") {
-					t.Error("Config file missing THRESHOLD_DAYS")
-				}
-				if !strings.Contains(config, "SLACK_WEBHOOK_URL=") {
-					t.Error("Config file missing SLACK_WEBHOOK_URL")
-				}
-
-				// Verify values
-				for _, response := range tt.responses {
-					if !strings.Contains(config, response) {
-						t.Errorf("Config file missing value: %s", response)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestValidateInput(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		field   string
-		wantErr bool
-	}{
-		{
-			name:    "valid domains",
-			input:   "example.com,test.com",
-			field:   "domains",
-			wantErr: false,
-		},
-		{
-			name:    "empty domains",
-			input:   "",
-			field:   "domains",
-			wantErr: true,
-		},
-		{
-			name:    "valid thresholds",
-			input:   "7,14,30",
-			field:   "thresholds",
-			wantErr: false,
-		},
-		{
-			name:    "invalid thresholds",
-			input:   "invalid,days",
-			field:   "thresholds",
-			wantErr: true,
-		},
-		{
-			name:    "valid webhook",
-			input:   "https://hooks.slack.com/test",
-			field:   "webhook",
-			wantErr: false,
-		},
-		{
-			name:    "empty webhook",
-			input:   "",
-			field:   "webhook",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateInput(tt.input, tt.field)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("validateInput() error = %v, wantErr %v", err, tt.wantErr)
+			if !tt.wantErr && tt.validate != nil {
+				envPath := filepath.Join(tempDir, ".certchecker", "config", ".env")
+				tt.validate(t, envPath)
 			}
 		})
 	}

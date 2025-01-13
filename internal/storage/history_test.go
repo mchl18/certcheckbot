@@ -4,93 +4,86 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestHistoryManager(t *testing.T) {
-	// Create a temporary directory for test config
+	// Create a temporary directory for test data
 	tempDir, err := os.MkdirTemp("", "history-test")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
 	defer os.RemoveAll(tempDir)
 
-	// Set up test environment
-	t.Setenv("HOME", tempDir)
-	manager := NewHistoryManager("")
+	// Initialize history manager
+	manager := NewHistoryManager(tempDir)
 
-	// Test saving new history
-	history := map[string]map[int]string{
-		"example.com": {
-			30: "2024-01-10",
-			14: "2024-01-26",
-		},
-		"test.com": {
-			7: "2024-02-03",
-		},
+	// Test domain and threshold
+	domain := "example.com"
+	threshold := 30
+	expiryDate := time.Now().Add(30 * 24 * time.Hour)
+
+	// Test recording an alert
+	if err := manager.RecordAlertForThreshold(domain, threshold, expiryDate); err != nil {
+		t.Errorf("Failed to record alert: %v", err)
 	}
 
-	// First save to create the initial file
-	if err := manager.SaveHistory(history); err != nil {
-		t.Errorf("First SaveHistory() error = %v", err)
+	// Test checking if alerted
+	if !manager.HasAlertedForThreshold(domain, threshold, expiryDate) {
+		t.Error("Expected HasAlertedForThreshold to return true")
 	}
 
-	// Save again to trigger backup creation
-	if err := manager.SaveHistory(history); err != nil {
-		t.Errorf("Second SaveHistory() error = %v", err)
+	// Test checking if alerted with different expiry date
+	differentDate := expiryDate.Add(24 * time.Hour)
+	if manager.HasAlertedForThreshold(domain, threshold, differentDate) {
+		t.Error("Expected HasAlertedForThreshold to return false for different expiry date")
 	}
 
-	// Test loading saved history
-	loaded, err := manager.LoadHistory()
+	// Test checking if alerted with different threshold
+	differentThreshold := 14
+	if manager.HasAlertedForThreshold(domain, differentThreshold, expiryDate) {
+		t.Error("Expected HasAlertedForThreshold to return false for different threshold")
+	}
+
+	// Test checking if alerted with different domain
+	differentDomain := "test.com"
+	if manager.HasAlertedForThreshold(differentDomain, threshold, expiryDate) {
+		t.Error("Expected HasAlertedForThreshold to return false for different domain")
+	}
+}
+
+func TestHistoryManagerBackup(t *testing.T) {
+	// Create a temporary directory for test data
+	tempDir, err := os.MkdirTemp("", "history-test")
 	if err != nil {
-		t.Errorf("LoadHistory() error = %v", err)
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Initialize history manager
+	manager := NewHistoryManager(tempDir)
+
+	// Test domain and threshold
+	domain := "example.com"
+	threshold := 30
+	expiryDate := time.Now().Add(30 * 24 * time.Hour)
+
+	// Record an alert
+	if err := manager.RecordAlertForThreshold(domain, threshold, expiryDate); err != nil {
+		t.Errorf("Failed to record alert: %v", err)
 	}
 
-	// Verify loaded history matches saved history
-	for domain, thresholds := range history {
-		loadedThresholds, ok := loaded[domain]
-		if !ok {
-			t.Errorf("LoadHistory() missing domain %s", domain)
-			continue
-		}
+	// Check if backup file was created
+	historyPath := filepath.Join(tempDir, "alert-history.json")
+	backupPath := historyPath + ".backup"
 
-		for threshold, date := range thresholds {
-			loadedDate, ok := loadedThresholds[threshold]
-			if !ok {
-				t.Errorf("LoadHistory() missing threshold %d for domain %s", threshold, domain)
-				continue
-			}
-
-			if loadedDate != date {
-				t.Errorf("LoadHistory() for domain %s threshold %d = %v, want %v",
-					domain, threshold, loadedDate, date)
-			}
-		}
+	// Record another alert to trigger backup
+	if err := manager.RecordAlertForThreshold(domain, 14, expiryDate); err != nil {
+		t.Errorf("Failed to record second alert: %v", err)
 	}
 
-	// Test backup file creation
-	mainFile := filepath.Join(tempDir, ".certchecker", "data", "alert-history.json")
-	backupFile := mainFile + ".backup"
-
-	// Check if main file exists
-	if _, err := os.Stat(mainFile); err != nil {
-		t.Errorf("Main file does not exist: %v", err)
-	}
-
-	// Check backup file
-	if _, err := os.Stat(backupFile); err != nil {
-		t.Errorf("Backup file does not exist: %v", err)
-	}
-
-	// Test loading with no existing file
-	os.Remove(mainFile)
-	os.Remove(backupFile)
-
-	emptyHistory, err := manager.LoadHistory()
-	if err != nil {
-		t.Errorf("LoadHistory() with no file error = %v", err)
-	}
-
-	if len(emptyHistory) != 0 {
-		t.Errorf("LoadHistory() with no file should return empty map, got %v", emptyHistory)
+	// Check if backup file exists
+	if _, err := os.Stat(backupPath); os.IsNotExist(err) {
+		t.Error("Expected backup file to exist")
 	}
 }

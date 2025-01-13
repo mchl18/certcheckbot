@@ -5,80 +5,112 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type HistoryManager struct {
-	historyPath string
+	dataDir string
 }
 
-// History is a map of domain names to their alert history
-// The inner map is threshold days to last alert date
-type History map[string]map[int]string
+type AlertHistory struct {
+	Alerts map[string]map[int]time.Time `json:"alerts"` // domain -> threshold -> last alert time
+}
 
-func NewHistoryManager(projectRoot string) *HistoryManager {
-	// Get home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get home directory: %v", err))
-	}
-
-	// Set history path within .certchecker
-	historyPath := filepath.Join(home, ".certchecker", "data", "alert-history.json")
+func NewHistoryManager(dataDir string) *HistoryManager {
 	return &HistoryManager{
-		historyPath: historyPath,
+		dataDir: dataDir,
 	}
 }
 
-func (h *HistoryManager) LoadHistory() (History, error) {
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(h.historyPath), 0755); err != nil {
-		return nil, fmt.Errorf("failed to create history directory: %w", err)
+func (h *HistoryManager) HasAlertedForThreshold(domain string, threshold int, expiryDate time.Time) bool {
+	history, err := h.loadHistory()
+	if err != nil {
+		return false
 	}
 
-	data, err := os.ReadFile(h.historyPath)
+	if alerts, ok := history.Alerts[domain]; ok {
+		if lastAlert, ok := alerts[threshold]; ok {
+			// Check if we've already alerted for this expiry date
+			return lastAlert.Equal(expiryDate)
+		}
+	}
+
+	return false
+}
+
+func (h *HistoryManager) RecordAlertForThreshold(domain string, threshold int, expiryDate time.Time) error {
+	history, err := h.loadHistory()
+	if err != nil {
+		history = &AlertHistory{
+			Alerts: make(map[string]map[int]time.Time),
+		}
+	}
+
+	// Initialize domain map if it doesn't exist
+	if _, ok := history.Alerts[domain]; !ok {
+		history.Alerts[domain] = make(map[int]time.Time)
+	}
+
+	// Record the alert
+	history.Alerts[domain][threshold] = expiryDate
+
+	// Save the updated history
+	return h.saveHistory(history)
+}
+
+func (h *HistoryManager) loadHistory() (*AlertHistory, error) {
+	historyPath := h.getHistoryPath()
+
+	// Create data directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(historyPath), 0755); err != nil {
+		return nil, fmt.Errorf("failed to create data directory: %v", err)
+	}
+
+	// Read history file
+	data, err := os.ReadFile(historyPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return make(History), nil
+			return &AlertHistory{
+				Alerts: make(map[string]map[int]time.Time),
+			}, nil
 		}
-		return nil, fmt.Errorf("failed to read history file: %w", err)
+		return nil, fmt.Errorf("failed to read history file: %v", err)
 	}
 
-	var history History
+	// Parse history
+	var history AlertHistory
 	if err := json.Unmarshal(data, &history); err != nil {
-		return nil, fmt.Errorf("failed to parse history file: %w", err)
+		return nil, fmt.Errorf("failed to parse history file: %v", err)
 	}
 
-	return history, nil
+	return &history, nil
 }
 
-func (h *HistoryManager) SaveHistory(history History) error {
-	// Ensure directory exists
-	if err := os.MkdirAll(filepath.Dir(h.historyPath), 0755); err != nil {
-		return fmt.Errorf("failed to create history directory: %w", err)
-	}
+func (h *HistoryManager) saveHistory(history *AlertHistory) error {
+	historyPath := h.getHistoryPath()
 
-	// Create backup if file exists
-	if _, err := os.Stat(h.historyPath); err == nil {
-		data, err := os.ReadFile(h.historyPath)
-		if err != nil {
-			return fmt.Errorf("failed to read existing history file for backup: %w", err)
-		}
-
-		backupPath := h.historyPath + ".backup"
-		if err := os.WriteFile(backupPath, data, 0644); err != nil {
-			return fmt.Errorf("failed to write history backup file: %w", err)
+	// Create backup of existing file
+	if _, err := os.Stat(historyPath); err == nil {
+		backupPath := historyPath + ".backup"
+		if err := os.Rename(historyPath, backupPath); err != nil {
+			return fmt.Errorf("failed to create backup: %v", err)
 		}
 	}
 
-	// Marshal and save new history
+	// Marshal history to JSON
 	data, err := json.MarshalIndent(history, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal history: %w", err)
+		return fmt.Errorf("failed to marshal history: %v", err)
 	}
 
-	if err := os.WriteFile(h.historyPath, data, 0644); err != nil {
-		return fmt.Errorf("failed to write history file: %w", err)
+	// Write to file
+	if err := os.WriteFile(historyPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write history file: %v", err)
 	}
 
 	return nil
+}
+
+func (h *HistoryManager) getHistoryPath() string {
+	return filepath.Join(h.dataDir, "alert-history.json")
 }

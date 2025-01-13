@@ -1,110 +1,106 @@
 package main
 
 import (
-	"log"
+	"flag"
+	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
-	"github.com/joho/godotenv"
 	"github.com/mchl18/certcheckbot/internal/checker"
 	"github.com/mchl18/certcheckbot/internal/config"
 	"github.com/mchl18/certcheckbot/internal/logger"
-)
-
-const (
-	checkInterval = 6 * time.Hour
+	"github.com/mchl18/certcheckbot/internal/server"
 )
 
 func main() {
-	// Check for config command
-	if len(os.Args) > 1 && os.Args[1] == "config" {
+	// Parse command line flags
+	configureFlag := flag.Bool("configure", false, "Run the configuration setup")
+	flag.Parse()
+
+	if *configureFlag {
 		if err := config.RunSetup(); err != nil {
-			log.Fatal("Configuration failed:", err)
+			fmt.Printf("Failed to run setup: %v\n", err)
+			os.Exit(1)
 		}
+		fmt.Println("Configuration completed successfully!")
 		return
 	}
 
-	// Get home directory for .certchecker
-	home, err := os.UserHomeDir()
+	// Get home directory
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		log.Fatal("Failed to get home directory:", err)
+		fmt.Printf("Failed to get home directory: %v\n", err)
+		os.Exit(1)
 	}
 
-	// Try to load .env from .certchecker config
-	envPath := filepath.Join(home, ".certchecker", "config", ".env")
-	if err := godotenv.Load(envPath); err != nil {
-		log.Fatal("No .env file found. Run 'certchecker config' to create one.")
-	}
+	// Create necessary directories
+	certCheckerDir := filepath.Join(homeDir, ".certchecker")
+	configDir := filepath.Join(certCheckerDir, "config")
+	logsDir := filepath.Join(certCheckerDir, "logs")
+	dataDir := filepath.Join(certCheckerDir, "data")
 
-	// Parse configuration
-	domains := strings.Split(os.Getenv("DOMAINS"), ",")
-	thresholdDaysStr := strings.Split(os.Getenv("THRESHOLD_DAYS"), ",")
-	slackWebhookURL := os.Getenv("SLACK_WEBHOOK_URL")
-
-	// Validate configuration
-	if slackWebhookURL == "" {
-		log.Fatal("SLACK_WEBHOOK_URL is not set")
-	}
-	if len(domains) == 0 || domains[0] == "" {
-		log.Fatal("DOMAINS is not set")
-	}
-	if len(thresholdDaysStr) == 0 || thresholdDaysStr[0] == "" {
-		log.Fatal("THRESHOLD_DAYS is not set")
-	}
-
-	// Convert threshold days to integers
-	thresholdDays := make([]int, len(thresholdDaysStr))
-	for i, dayStr := range thresholdDaysStr {
-		day, err := strconv.Atoi(dayStr)
-		if err != nil {
-			log.Fatalf("Invalid threshold day value: %s", dayStr)
+	for _, dir := range []string{certCheckerDir, configDir, logsDir, dataDir} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			fmt.Printf("Failed to create directory %s: %v\n", dir, err)
+			os.Exit(1)
 		}
-		thresholdDays[i] = day
 	}
 
 	// Initialize logger
-	logger := logger.New(filepath.Join(home, "logs", "cert-checker.log"))
+	logger := logger.New(homeDir)
 
-	// Initialize certificate checker with project root
-	certChecker := checker.New(domains, thresholdDays, slackWebhookURL, logger, home)
+	// Load configuration
+	cfg, err := config.Load(homeDir)
+	if err != nil {
+		logger.Error("Failed to load configuration", map[string]interface{}{"error": err.Error()})
+		os.Exit(1)
+	}
 
-	// Run initial check
-	logger.Info("Certificate monitoring service initialization", map[string]interface{}{
-		"startTime": time.Now().Format(time.RFC3339),
-		"configuration": map[string]interface{}{
-			"domains":       domains,
-			"thresholds":    thresholdDays,
-			"checkInterval": checkInterval.String(),
-		},
-	})
+	// Initialize certificate checker
+	certChecker := checker.New(cfg.Domains, cfg.ThresholdDays, cfg.SlackWebhookURL, logger, dataDir)
 
-	runCheck(certChecker, logger)
+	// Initialize HTTP server if enabled
+	if cfg.HTTPEnabled {
+		server := server.New(certChecker, cfg.HTTPAuthToken, homeDir)
+		go func() {
+			logger.Info("Starting HTTP server", map[string]interface{}{"port": cfg.HTTPPort})
+			if err := server.Start(cfg.HTTPPort); err != nil {
+				logger.Error("HTTP server failed", map[string]interface{}{"error": err.Error()})
+			}
+		}()
+	}
 
-	// Schedule periodic checks
+	// Start heartbeat if enabled
+	if cfg.HeartbeatHours > 0 {
+		heartbeatInterval := time.Duration(cfg.HeartbeatHours) * time.Hour
+		logger.Info("Heartbeat enabled", map[string]interface{}{"interval": heartbeatInterval.String()})
+		go func() {
+			ticker := time.NewTicker(heartbeatInterval)
+			defer ticker.Stop()
+
+			for range ticker.C {
+				if err := certChecker.SendHeartbeat(); err != nil {
+					logger.Error("Failed to send heartbeat", map[string]interface{}{"error": err.Error()})
+				}
+			}
+		}()
+	}
+
+	// Start certificate checking loop
+	checkInterval := time.Duration(cfg.IntervalHours) * time.Hour
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 
+	// Initial check
+	if err := certChecker.CheckCertificates(); err != nil {
+		logger.Error("Failed to check certificates", map[string]interface{}{"error": err.Error()})
+	}
+
+	// Continuous checking
 	for range ticker.C {
-		runCheck(certChecker, logger)
+		if err := certChecker.CheckCertificates(); err != nil {
+			logger.Error("Failed to check certificates", map[string]interface{}{"error": err.Error()})
+		}
 	}
-}
-
-func runCheck(certChecker *checker.CertificateChecker, logger *logger.Logger) {
-	logger.Info("Beginning certificate check cycle", map[string]interface{}{
-		"domains":       certChecker.Domains(),
-		"thresholds":    certChecker.ThresholdDays(),
-		"checkInterval": checkInterval.String(),
-	})
-
-	if err := certChecker.CheckAll(); err != nil {
-		logger.Error("Certificate check cycle failed", map[string]interface{}{
-			"error": err.Error(),
-		})
-		return
-	}
-
-	logger.Info("Certificate check cycle completed successfully", nil)
 }

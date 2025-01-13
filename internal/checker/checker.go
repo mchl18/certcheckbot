@@ -1,134 +1,150 @@
 package checker
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
-	"sort"
+	"net/http"
 	"time"
 
-	"github.com/mchl18/certcheckbot/internal/alert"
 	"github.com/mchl18/certcheckbot/internal/logger"
 	"github.com/mchl18/certcheckbot/internal/storage"
 )
 
-type CertificateChecker struct {
-	domains       []string
-	thresholdDays []int
-	logger        *logger.Logger
-	slackNotifier *alert.SlackNotifier
-	history       *storage.HistoryManager
-}
-
-func New(domains []string, thresholdDays []int, slackWebhookURL string, logger *logger.Logger, projectRoot string) *CertificateChecker {
-	return &CertificateChecker{
-		domains:       domains,
-		thresholdDays: thresholdDays,
-		logger:        logger,
-		slackNotifier: alert.NewSlackNotifier(slackWebhookURL),
-		history:       storage.NewHistoryManager(projectRoot),
-	}
-}
-
-func (c *CertificateChecker) Domains() []string {
-	return c.domains
-}
-
-func (c *CertificateChecker) ThresholdDays() []int {
-	return c.thresholdDays
-}
-
-func (c *CertificateChecker) CheckAll() error {
-	for _, domain := range c.domains {
-		if err := c.checkCertificate(domain); err != nil {
-			return fmt.Errorf("failed to check certificate for %s: %w", domain, err)
-		}
-	}
-	return nil
-}
-
-func (c *CertificateChecker) checkCertificate(domain string) error {
-	c.logger.Info(fmt.Sprintf("Starting SSL certificate check for domain: %s", domain), map[string]interface{}{
-		"checkTime": time.Now().Format(time.RFC3339),
-		"domain":    domain,
-		"checkType": "SSL_CERTIFICATE",
-	})
-
-	// Connect to the domain
+// Make getCertificate a variable so it can be mocked in tests
+var getCertificate = func(domain string) (*tls.Certificate, error) {
 	conn, err := tls.Dial("tcp", domain+":443", &tls.Config{
 		InsecureSkipVerify: true,
 	})
 	if err != nil {
-		c.logger.Error(fmt.Sprintf("Failed to check certificate for %s", domain), map[string]interface{}{
-			"domain":       domain,
-			"errorMessage": err.Error(),
-		})
-		return err
+		return nil, fmt.Errorf("failed to connect: %v", err)
 	}
 	defer conn.Close()
 
-	// Get the certificate
 	cert := conn.ConnectionState().PeerCertificates[0]
-	expirationDate := cert.NotAfter
-
-	c.logger.Info(fmt.Sprintf("Certificate details retrieved for %s", domain), map[string]interface{}{
-		"domain":       domain,
-		"issuer":       cert.Issuer,
-		"subject":      cert.Subject,
-		"validFrom":    cert.NotBefore.Format(time.RFC3339),
-		"validTo":      expirationDate.Format(time.RFC3339),
-		"serialNumber": cert.SerialNumber.String(),
-		"fingerprint":  fmt.Sprintf("%x", cert.Signature),
-		"protocol":     conn.ConnectionState().Version,
-	})
-
-	daysToExpiration := int(time.Until(expirationDate).Hours() / 24)
-
-	c.logger.Info(fmt.Sprintf("Certificate expiration analysis for %s", domain), map[string]interface{}{
-		"domain":         domain,
-		"daysRemaining":  daysToExpiration,
-		"expirationDate": expirationDate.Format(time.RFC3339),
-		"status":         map[bool]string{true: "WARNING", false: "OK"}[daysToExpiration <= 30],
-	})
-
-	return c.checkAndSendAlert(domain, daysToExpiration, expirationDate)
+	return &tls.Certificate{
+		Certificate: [][]byte{cert.Raw},
+		Leaf:       cert,
+	}, nil
 }
 
-func (c *CertificateChecker) checkAndSendAlert(domain string, daysToExpiration int, expirationDate time.Time) error {
-	history, err := c.history.LoadHistory()
+type CertificateChecker struct {
+	domains       []string
+	thresholds   []int
+	webhookURL   string
+	logger       *logger.Logger
+	history      *storage.HistoryManager
+}
+
+func New(domains []string, thresholds []int, webhookURL string, logger *logger.Logger, dataDir string) *CertificateChecker {
+	return &CertificateChecker{
+		domains:     domains,
+		thresholds: thresholds,
+		webhookURL: webhookURL,
+		logger:     logger,
+		history:    storage.NewHistoryManager(dataDir),
+	}
+}
+
+func (c *CertificateChecker) GetDomains() []string {
+	return c.domains
+}
+
+func (c *CertificateChecker) GetThresholds() []int {
+	return c.thresholds
+}
+
+func (c *CertificateChecker) CheckCertificates() error {
+	c.logger.Info("Starting certificate check", map[string]interface{}{
+		"domains": c.domains,
+	})
+
+	for _, domain := range c.domains {
+		cert, err := getCertificate(domain)
+		if err != nil {
+			c.logger.Error("Failed to get certificate", map[string]interface{}{
+				"domain": domain,
+				"error":  err.Error(),
+			})
+			continue
+		}
+
+		daysUntilExpiry := int(time.Until(cert.Leaf.NotAfter).Hours() / 24)
+		c.logger.Info("Certificate expiration check", map[string]interface{}{
+			"domain":        domain,
+			"daysRemaining": daysUntilExpiry,
+		})
+
+		// Check if we need to send alerts
+		for _, threshold := range c.thresholds {
+			if daysUntilExpiry <= threshold {
+				// Check if we've already alerted for this threshold
+				if !c.history.HasAlertedForThreshold(domain, threshold, cert.Leaf.NotAfter) {
+					message := fmt.Sprintf("SSL Certificate for %s will expire in %d days (on %s)",
+						domain, daysUntilExpiry, cert.Leaf.NotAfter.Format("2006-01-02"))
+
+					if err := c.sendSlackNotification(message); err != nil {
+						c.logger.Error("Failed to send Slack notification", map[string]interface{}{
+							"domain": domain,
+							"error":  err.Error(),
+						})
+						continue
+					}
+
+					// Record the alert in history
+					if err := c.history.RecordAlertForThreshold(domain, threshold, cert.Leaf.NotAfter); err != nil {
+						c.logger.Error("Failed to record alert", map[string]interface{}{
+							"domain": domain,
+							"error":  err.Error(),
+						})
+					}
+
+					c.logger.Info("Alert sent", map[string]interface{}{
+						"domain":    domain,
+						"threshold": threshold,
+					})
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (c *CertificateChecker) SendHeartbeat() error {
+	message := fmt.Sprintf("SSL Certificate Checker is running\nMonitoring domains: %v\nThresholds: %v days",
+		c.domains, c.thresholds)
+
+	if err := c.sendSlackNotification(message); err != nil {
+		return fmt.Errorf("failed to send heartbeat: %v", err)
+	}
+
+	c.logger.Info("Heartbeat sent", map[string]interface{}{
+		"domains":    c.domains,
+		"thresholds": c.thresholds,
+	})
+	return nil
+}
+
+func (c *CertificateChecker) sendSlackNotification(message string) error {
+	payload := map[string]string{
+		"text": message,
+	}
+
+	jsonPayload, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to load history: %w", err)
+		return fmt.Errorf("failed to marshal payload: %v", err)
 	}
 
-	today := time.Now().Format("2006-01-02")
-
-	if _, exists := history[domain]; !exists {
-		history[domain] = make(map[int]string)
+	resp, err := http.Post(c.webhookURL, "application/json", bytes.NewBuffer(jsonPayload))
+	if err != nil {
+		return fmt.Errorf("failed to send request: %v", err)
 	}
+	defer resp.Body.Close()
 
-	// Sort thresholds in ascending order
-	thresholds := make([]int, len(c.thresholdDays))
-	copy(thresholds, c.thresholdDays)
-	sort.Ints(thresholds)
-
-	var thresholdToAlert *int
-	for _, threshold := range thresholds {
-		if daysToExpiration <= threshold {
-			thresholdToAlert = &threshold
-			break
-		}
-	}
-
-	if thresholdToAlert != nil {
-		lastAlert := history[domain][*thresholdToAlert]
-		if lastAlert != today {
-			if err := c.slackNotifier.SendAlert(domain, daysToExpiration, expirationDate, *thresholdToAlert); err != nil {
-				return fmt.Errorf("failed to send alert: %w", err)
-			}
-			history[domain][*thresholdToAlert] = today
-			if err := c.history.SaveHistory(history); err != nil {
-				return fmt.Errorf("failed to save history: %w", err)
-			}
-		}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 	}
 
 	return nil

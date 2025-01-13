@@ -9,25 +9,27 @@ import (
 	"time"
 )
 
+var startTime = time.Now()
+
 type Logger struct {
 	logFile string
 }
 
-func New(logFile string) *Logger {
-	// Get home directory
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get home directory: %v", err))
-	}
-
+func New(homeDir string) *Logger {
 	// Ensure log directory exists within .certchecker
-	logDir := filepath.Join(home, ".certchecker", "logs")
+	logDir := filepath.Join(homeDir, ".certchecker", "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create log directory: %v", err))
 	}
 
 	// Set log file path within .certchecker
-	logPath := filepath.Join(logDir, logFile)
+	logPath := filepath.Join(logDir, "cert-checker.log")
+
+	// Create or truncate the log file
+	if err := os.WriteFile(logPath, []byte(""), 0644); err != nil {
+		panic(fmt.Sprintf("Failed to create log file: %v", err))
+	}
+
 	return &Logger{logFile: logPath}
 }
 
@@ -60,9 +62,15 @@ func (l *Logger) log(level string, message string, details map[string]interface{
 
 	// Write to log file
 	f, err := os.OpenFile(l.logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err == nil {
-		defer f.Close()
-		f.WriteString(logMessage)
+	if err != nil {
+		fmt.Printf("Failed to open log file: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.WriteString(logMessage); err != nil {
+		fmt.Printf("Failed to write to log file: %v\n", err)
+		return
 	}
 
 	// Also log to console
@@ -80,5 +88,3 @@ func (l *Logger) Error(message string, details map[string]interface{}) {
 func (l *Logger) Warning(message string, details map[string]interface{}) {
 	l.log("WARNING", message, details)
 }
-
-var startTime = time.Now()
