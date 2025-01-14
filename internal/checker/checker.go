@@ -149,3 +149,56 @@ func (c *CertificateChecker) sendSlackNotification(message string) error {
 
 	return nil
 }
+
+// Start begins the certificate checking loop with the specified interval
+func (c *CertificateChecker) Start(intervalHours int) {
+	checkInterval := 6 * time.Hour // default interval
+	if intervalHours > 0 {
+		checkInterval = time.Duration(intervalHours) * time.Hour
+	}
+
+	c.logger.Info("Starting certificate checker", map[string]interface{}{
+		"check_interval": checkInterval.String(),
+		"domains":        c.domains,
+		"thresholds":     c.thresholds,
+	})
+
+	// Initial check
+	if err := c.CheckCertificates(); err != nil {
+		c.logger.Error("Certificate check failed", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// Start periodic checks
+	ticker := time.NewTicker(checkInterval)
+	for range ticker.C {
+		if err := c.CheckCertificates(); err != nil {
+			c.logger.Error("Certificate check failed", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+}
+
+// StartHeartbeat begins sending periodic heartbeat messages
+func (c *CertificateChecker) StartHeartbeat(intervalHours int) {
+	heartbeatInterval := time.Duration(intervalHours) * time.Hour
+	ticker := time.NewTicker(heartbeatInterval)
+
+	// Initial heartbeat
+	if err := c.SendHeartbeat(); err != nil {
+		c.logger.Error("Failed to send heartbeat", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
+	// Start periodic heartbeats
+	for range ticker.C {
+		if err := c.SendHeartbeat(); err != nil {
+			c.logger.Error("Failed to send heartbeat", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+	}
+}

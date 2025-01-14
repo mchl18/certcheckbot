@@ -1,7 +1,9 @@
 package webui
 
 import (
+	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -25,6 +27,7 @@ type WebUI struct {
 	logger     *logger.Logger
 	templates  *template.Template
 	authToken  string
+	server     *http.Server
 	configured bool
 	mu         sync.RWMutex
 }
@@ -62,6 +65,7 @@ func (w *WebUI) Start() error {
 	mux.HandleFunc("/configure", w.handleConfigure)
 	mux.HandleFunc("/login", w.handleLogin)
 	mux.HandleFunc("/logs", w.handleLogs)
+	mux.HandleFunc("/restart", w.handleRestart)
 
 	listenAddr := os.Getenv("LISTEN_ADDRESS")
 	if listenAddr == "" {
@@ -72,7 +76,15 @@ func (w *WebUI) Start() error {
 		"address": listenAddr,
 	})
 
-	return http.ListenAndServe(listenAddr, w.authMiddleware(mux))
+	server := &http.Server{
+		Addr:    listenAddr,
+		Handler: w.authMiddleware(mux),
+	}
+
+	// Store server in WebUI struct for shutdown
+	w.server = server
+
+	return server.ListenAndServe()
 }
 
 func (w *WebUI) authMiddleware(next http.Handler) http.Handler {
@@ -388,4 +400,42 @@ func (w *WebUI) handleLogs(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, fmt.Sprintf("Failed to render template: %v", err), http.StatusInternalServerError)
 		return
 	}
+}
+
+func (w *WebUI) handleRestart(rw http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(rw, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.logger.Info("Restart requested", nil)
+
+	// Return success response immediately
+	rw.WriteHeader(http.StatusOK)
+	json.NewEncoder(rw).Encode(map[string]string{
+		"status": "restarting",
+	})
+	rw.(http.Flusher).Flush()
+
+	// Execute restart in a goroutine
+	go func() {
+		w.logger.Info("Restarting process", nil)
+
+		// Shutdown the current HTTP server gracefully
+		if w.server != nil {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := w.server.Shutdown(ctx); err != nil {
+				w.logger.Error("Failed to shutdown HTTP server", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		// Log that we're exiting
+		w.logger.Info("Exiting process for Docker to restart", nil)
+
+		// Exit with status code 1 to trigger Docker's restart policy
+		os.Exit(1)
+	}()
 } 

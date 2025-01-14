@@ -21,7 +21,7 @@ FROM alpine:3.19
 WORKDIR /app
 
 # Install ca-certificates for SSL verification
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata curl
 
 # Create necessary directories
 RUN mkdir -p /root/.certchecker/config /root/.certchecker/logs /root/.certchecker/data
@@ -32,6 +32,10 @@ COPY --from=builder /app/certchecker /app/certchecker
 # Set environment variables
 ENV PATH="/app:${PATH}" \
     LISTEN_ADDRESS="0.0.0.0:8081"
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8081/ || exit 1
 
 # Expose HTTP port (default: 8081)
 EXPOSE 8081

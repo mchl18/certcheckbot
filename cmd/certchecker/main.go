@@ -4,9 +4,12 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mchl18/ssl-expiration-check-bot/internal/checker"
@@ -43,15 +46,6 @@ func main() {
 	webUIFlag := flag.Bool("webui", false, "Start the web UI")
 	flag.Parse()
 
-	if *configureFlag {
-		if err := config.RunSetup(); err != nil {
-			fmt.Printf("Failed to run setup: %v\n", err)
-			os.Exit(1)
-		}
-		fmt.Println("Configuration completed successfully!")
-		return
-	}
-
 	// Get home directory
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -59,45 +53,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Create necessary directories
+	// Create certchecker directory if it doesn't exist
 	certCheckerDir := filepath.Join(homeDir, ".certchecker")
-	for _, dir := range []string{"config", "logs", "data"} {
-		path := filepath.Join(certCheckerDir, dir)
-		if err := os.MkdirAll(path, 0755); err != nil {
-			fmt.Printf("Failed to create directory %s: %v\n", path, err)
-			os.Exit(1)
-		}
+	if err := os.MkdirAll(certCheckerDir, 0755); err != nil {
+		fmt.Printf("Failed to create certchecker directory: %v\n", err)
+		os.Exit(1)
 	}
 
 	// Initialize logger
-	logger := logger.New(homeDir)
+	logger := logger.New(certCheckerDir)
+
+	// Handle configuration
+	if *configureFlag {
+		if err := config.RunSetup(); err != nil {
+			fmt.Printf("Failed to run setup: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Configuration completed successfully!")
+		fmt.Println("Please restart the application to apply the configuration.")
+		return
+	}
 
 	// Load configuration
 	cfg, err := config.Load(homeDir)
 	if err != nil {
-		fmt.Printf("Configuration error: %v\n", err)
-		
-		// If webui flag is not explicitly set, prompt for method
-		if !*webUIFlag {
-			useWebUI, err := promptForConfigMethod()
-			if err != nil {
-				fmt.Printf("Error: %v\n", err)
-				os.Exit(1)
-			}
-			*webUIFlag = useWebUI
-			*configureFlag = !useWebUI
-		}
-
-		if *configureFlag {
-			if err := config.RunSetup(); err != nil {
-				fmt.Printf("Failed to run setup: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Println("Configuration completed successfully!")
-			fmt.Println("Please restart the application to apply the configuration.")
-			return
-		}
-
 		if *webUIFlag {
 			// Start web UI for initial configuration
 			webUI, err := webui.New(homeDir, logger)
@@ -114,8 +93,41 @@ func main() {
 					"error": err.Error(),
 				})
 			}
-			select {}
+			return
 		}
+
+		// Prompt for configuration method
+		useWebUI, err := promptForConfigMethod()
+		if err != nil {
+			fmt.Printf("Failed to get configuration method: %v\n", err)
+			os.Exit(1)
+		}
+
+		if useWebUI {
+			webUI, err := webui.New(homeDir, logger)
+			if err != nil {
+				logger.Error("Failed to initialize web UI", map[string]interface{}{
+					"error": err.Error(),
+				})
+				os.Exit(1)
+			}
+			fmt.Println("\nWeb UI is available at: http://localhost:8081")
+			fmt.Println("Use this interface to configure the service and view logs.")
+			if err := webUI.Start(); err != nil {
+				logger.Error("Web UI failed", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+			return
+		}
+
+		if err := config.RunSetup(); err != nil {
+			fmt.Printf("Failed to run setup: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Configuration completed successfully!")
+		fmt.Println("Please restart the application to apply the configuration.")
+		return
 	}
 
 	// Start web UI if enabled
@@ -127,10 +139,12 @@ func main() {
 			})
 			os.Exit(1)
 		}
+
+		// Start web UI in a goroutine
 		go func() {
 			fmt.Println("\nWeb UI is available at: http://localhost:8081")
 			fmt.Println("Use this interface to configure the service and view logs.")
-			if err := webUI.Start(); err != nil {
+			if err := webUI.Start(); err != nil && err != http.ErrServerClosed {
 				logger.Error("Web UI failed", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -148,7 +162,7 @@ func main() {
 			logger.Info("Starting HTTP server", map[string]interface{}{
 				"port": cfg.HTTPPort,
 			})
-			if err := srv.Start(cfg.HTTPPort); err != nil {
+			if err := srv.Start(cfg.HTTPPort); err != nil && err != http.ErrServerClosed {
 				logger.Error("HTTP server failed", map[string]interface{}{
 					"error": err.Error(),
 				})
@@ -156,56 +170,21 @@ func main() {
 		}()
 	}
 
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGTERM, syscall.SIGINT)
+
+	// Start the certificate checker
+	go certChecker.Start(cfg.IntervalHours)
+
 	// Start heartbeat if enabled
-	var heartbeatTicker *time.Ticker
 	if cfg.HeartbeatHours > 0 {
-		heartbeatInterval := time.Duration(cfg.HeartbeatHours) * time.Hour
-		heartbeatTicker = time.NewTicker(heartbeatInterval)
-		go func() {
-			for range heartbeatTicker.C {
-				if err := certChecker.SendHeartbeat(); err != nil {
-					logger.Error("Failed to send heartbeat", map[string]interface{}{
-						"error": err.Error(),
-					})
-				}
-			}
-		}()
 		logger.Info("Heartbeat enabled", map[string]interface{}{
-			"interval": heartbeatInterval.String(),
+			"interval": time.Duration(cfg.HeartbeatHours) * time.Hour,
 		})
+		go certChecker.StartHeartbeat(cfg.HeartbeatHours)
 	}
 
-	// Start certificate check loop
-	checkInterval := 6 * time.Hour
-	if cfg.IntervalHours > 0 {
-		checkInterval = time.Duration(cfg.IntervalHours) * time.Hour
-	}
-
-	ticker := time.NewTicker(checkInterval)
-	defer ticker.Stop()
-	if heartbeatTicker != nil {
-		defer heartbeatTicker.Stop()
-	}
-
-	logger.Info("Starting certificate checker", map[string]interface{}{
-		"check_interval": checkInterval.String(),
-		"domains":        cfg.Domains,
-		"thresholds":     cfg.ThresholdDays,
-	})
-
-	// Initial check
-	if err := certChecker.CheckCertificates(); err != nil {
-		logger.Error("Certificate check failed", map[string]interface{}{
-			"error": err.Error(),
-		})
-	}
-
-	// Main loop
-	for range ticker.C {
-		if err := certChecker.CheckCertificates(); err != nil {
-			logger.Error("Certificate check failed", map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
-	}
+	// Wait for signal
+	<-sigChan
 }
