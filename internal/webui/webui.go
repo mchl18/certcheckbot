@@ -63,11 +63,16 @@ func (w *WebUI) Start() error {
 	mux.HandleFunc("/login", w.handleLogin)
 	mux.HandleFunc("/logs", w.handleLogs)
 
+	listenAddr := os.Getenv("LISTEN_ADDRESS")
+	if listenAddr == "" {
+		listenAddr = "localhost:8081"
+	}
+
 	w.logger.Info("Starting web UI", map[string]interface{}{
-		"address": "localhost:8081",
+		"address": listenAddr,
 	})
 
-	return http.ListenAndServe("localhost:8081", w.authMiddleware(mux))
+	return http.ListenAndServe(listenAddr, w.authMiddleware(mux))
 }
 
 func (w *WebUI) authMiddleware(next http.Handler) http.Handler {

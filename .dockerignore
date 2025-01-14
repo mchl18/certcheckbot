@@ -1,0 +1,31 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+bin/
+dist/
+
+# Development and test files
+*_test.go
+*.test
+*.out
+coverage.html
+
+# IDE files
+.idea/
+.vscode/
+
+# Local development files
+.env
+*.log
+*.yaml
+
+# Docker files
+Dockerfile
+.dockerignore
+
+# Documentation
+README.md
+LICENSE
+docs/ 
