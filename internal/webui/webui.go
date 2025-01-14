@@ -154,28 +154,30 @@ type configData struct {
 func (w *WebUI) handleConfigure(rw http.ResponseWriter, r *http.Request) {
 	// Check if already configured
 	configPath := filepath.Join(w.homeDir, ".certchecker", "config", "config.yaml")
-	configured := false
 	var data configData
 
+	// Load existing config if available
 	if _, err := os.Stat(configPath); err == nil {
-		configured = true
-		// Load existing config
 		cfg, err := config.Load(w.homeDir)
 		if err == nil {
 			data = configData{
 				Domains:        strings.Join(cfg.Domains, ","),
 				Thresholds:    strings.Trim(strings.Join(strings.Fields(fmt.Sprint(cfg.ThresholdDays)), ","), "[]"),
-				WebhookURL:     cfg.SlackWebhookURL,
+				WebhookURL:    cfg.SlackWebhookURL,
 				HeartbeatHours: fmt.Sprintf("%d", cfg.HeartbeatHours),
 				IntervalHours:  fmt.Sprintf("%d", cfg.IntervalHours),
 				HTTPEnabled:    cfg.HTTPEnabled,
 				HTTPPort:      fmt.Sprintf("%d", cfg.HTTPPort),
 				HTTPAuthToken: cfg.HTTPAuthToken,
 			}
+			w.mu.Lock()
+			w.configured = true
+			w.authToken = cfg.HTTPAuthToken
+			w.mu.Unlock()
 		}
 	}
 
-	if configured {
+	if w.configured {
 		// Check authentication
 		cookie, err := r.Cookie("session")
 		if err != nil || cookie.Value != w.authToken {
@@ -185,17 +187,18 @@ func (w *WebUI) handleConfigure(rw http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "GET" {
-		if err := w.templates.ExecuteTemplate(rw, "base.html", map[string]interface{}{
-			"Content": "configure",
-			"Domains": data.Domains,
-			"Thresholds": data.Thresholds,
-			"WebhookURL": data.WebhookURL,
+		templateData := map[string]interface{}{
+			"Content":        "configure",
+			"Domains":        data.Domains,
+			"Thresholds":     data.Thresholds,
+			"WebhookURL":     data.WebhookURL,
 			"HeartbeatHours": data.HeartbeatHours,
-			"IntervalHours": data.IntervalHours,
-			"HTTPEnabled": data.HTTPEnabled,
-			"HTTPPort": data.HTTPPort,
-			"HTTPAuthToken": data.HTTPAuthToken,
-		}); err != nil {
+			"IntervalHours":  data.IntervalHours,
+			"HTTPEnabled":    data.HTTPEnabled,
+			"HTTPPort":       data.HTTPPort,
+			"HTTPAuthToken":  data.HTTPAuthToken,
+		}
+		if err := w.templates.ExecuteTemplate(rw, "base.html", templateData); err != nil {
 			http.Error(rw, err.Error(), http.StatusInternalServerError)
 			return
 		}
