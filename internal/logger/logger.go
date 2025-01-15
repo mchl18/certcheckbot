@@ -15,9 +15,9 @@ type Logger struct {
 	logFile string
 }
 
-func New(homeDir string) *Logger {
+func New(appDir string) *Logger {
 	// Ensure log directory exists within .certchecker
-	logDir := filepath.Join(homeDir, ".certchecker", "logs")
+	logDir := filepath.Join(appDir, "logs")
 	if err := os.MkdirAll(logDir, 0755); err != nil {
 		panic(fmt.Sprintf("Failed to create log directory: %v", err))
 	}

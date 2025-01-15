@@ -27,7 +27,7 @@ func promptForConfigMethod() (bool, error) {
 		if err != nil {
 			return false, fmt.Errorf("failed to read input: %v", err)
 		}
-		
+
 		choice = strings.TrimSpace(strings.ToLower(choice))
 		switch choice {
 		case "web", "webui", "w":
