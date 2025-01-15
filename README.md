@@ -37,6 +37,26 @@ Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.
 
 After installation, restart your terminal/PowerShell for the PATH changes to take effect.
 
+## Setting up Slack Webhook
+
+Before configuring the service, you'll need to create a Slack webhook:
+
+1. Go to [Slack Apps](https://api.slack.com/apps) and click "Create New App"
+2. Choose "From scratch" and give your app a name (e.g., "SSL Certificate Checker")
+3. Select the workspace where you want to receive notifications
+4. In the sidebar, under "Features", click "Incoming Webhooks"
+5. Toggle "Activate Incoming Webhooks" to On
+6. Click "Add New Webhook to Workspace"
+7. Choose the channel where you want to receive notifications
+8. Copy the Webhook URL - you'll need this during configuration
+
+The webhook URL will look something like: `https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX`
+
+You can test your webhook with curl:
+```bash
+curl -X POST -H 'Content-type: application/json' --data '{"text":"Hello from SSL Certificate Checker!"}' YOUR_WEBHOOK_URL
+```
+
 ## Configuration
 
 You can configure the service in three ways:
